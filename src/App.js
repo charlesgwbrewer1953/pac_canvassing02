@@ -1,4 +1,3 @@
-// App.js
 import React, { useState, useEffect } from 'react';
 import StepForm from './StepForm';
 import { shuffle, generateCSVAndJSON } from './utils';
@@ -21,7 +20,10 @@ function App() {
   useEffect(() => {
     fetch('/address_data.json')
       .then(res => res.json())
-      .then(data => setAddressData(data));
+      .then(data => {
+        console.log("📦 Address data loaded:", data);
+        setAddressData(data);
+      });
 
     fetch('/user_emails.json')
       .then(res => res.json())
@@ -29,10 +31,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (currentAddress && !formData.address) {
-      setFormData(prev => ({ ...prev, address: currentAddress }));
-    }
+    console.log("📌 Address selected:", currentAddress);
   }, [currentAddress]);
+
+  useEffect(() => {
+    console.log("🧾 formData.address:", formData.address);
+  }, [formData.address]);
 
   const handleLogin = () => {
     if (emailMap[userId]) {
@@ -72,7 +76,10 @@ function App() {
 
     fetch('https://script.google.com/macros/s/AKfycbxWs_mUlycyVA9FvXUti-DfAWg3AMa1CZVEDCvMimzU2je7VaoDL-TnocnVbFt21IC6/exec', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         to: canvasserEmail,
         canvasser: canvasserName,
@@ -96,46 +103,55 @@ function App() {
       });
   };
 
-  const getFormSteps = () => [
-    {
-      name: 'residents',
-      label: 'Who was spoken to?',
-      type: 'checkbox',
-      options: currentAddress ? (addressData.find(a => a.address === currentAddress)?.residents || []) : []
-    },
-    {
-      name: 'party',
-      label: 'Party Preference',
-      type: 'radio',
-      options: [
-        { value: 'CON', label: 'Conservative', color: 'blue' },
-        { value: 'LAB', label: 'Labour', color: 'red' },
-        { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
-        { value: 'REF', label: 'Reform', color: 'teal' },
-        { value: 'OTH', label: 'Other', color: 'green' },
-        { value: 'NONE', label: 'None', color: 'black' }
-      ]
-    },
-    {
-      name: 'support',
-      label: 'Support level',
-      type: 'select',
-      options: ['member', 'strong', 'lean to', 'none']
-    },
-    {
-      name: 'likelihood',
-      label: 'Likelihood of Voting',
-      type: 'select',
-      options: ['definitely', 'probably', 'unlikely', 'no']
-    },
-    {
-      name: 'issue',
-      label: 'Most Important Issue',
-      type: 'radio',
-      options: shuffle(['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'])
-    },
-    { name: 'notes', label: 'Notes', type: 'textarea' }
-  ];
+  const getFormSteps = () => {
+    const selected = addressData.find(a => a.address === formData.address);
+    const residents = selected?.residents || [];
+
+    console.log("🧠 Matching address:", formData.address);
+    console.log("✅ Found:", selected);
+    console.log("👥 Residents:", residents);
+
+    return [
+      {
+        name: 'residents',
+        label: 'Who was spoken to?',
+        type: 'checkbox',
+        options: residents
+      },
+      {
+        name: 'party',
+        label: 'Party Preference',
+        type: 'radio',
+        options: [
+          { value: 'CON', label: 'Conservative', color: 'blue' },
+          { value: 'LAB', label: 'Labour', color: 'red' },
+          { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
+          { value: 'REF', label: 'Reform', color: 'teal' },
+          { value: 'OTH', label: 'Other', color: 'green' },
+          { value: 'NONE', label: 'None', color: 'black' }
+        ]
+      },
+      {
+        name: 'support',
+        label: 'Support level',
+        type: 'select',
+        options: ['member', 'strong', 'lean to', 'none']
+      },
+      {
+        name: 'likelihood',
+        label: 'Likelihood of Voting',
+        type: 'select',
+        options: ['definitely', 'probably', 'unlikely', 'no']
+      },
+      {
+        name: 'issue',
+        label: 'Most Important Issue',
+        type: 'radio',
+        options: shuffle(['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'])
+      },
+      { name: 'notes', label: 'Notes', type: 'textarea' }
+    ];
+  };
 
   if (!loggedIn) {
     return (
@@ -158,8 +174,9 @@ function App() {
             value={currentAddress}
             onChange={(e) => {
               const selected = e.target.value;
+              console.log("Selected address:", selected);
               setCurrentAddress(selected);
-              setFormData({ ...formData, address: selected });
+              setFormData({ address: selected });
             }}
             style={inputStyle}
           >
@@ -202,13 +219,16 @@ function App() {
           </div>
 
           {formData.response === 'Response' && (
-            <StepForm
-              step={step}
-              formData={formData}
-              setFormData={setFormData}
-              stepConfig={getFormSteps()[step]}
-              onNext={() => saveResponse(formData)}
-            />
+            <>
+              {console.log("📤 Step passed to StepForm:", getFormSteps()[step])}
+              <StepForm
+                step={step}
+                formData={formData}
+                setFormData={setFormData}
+                stepConfig={getFormSteps()[step]}
+                onNext={() => saveResponse(formData)}
+              />
+            </>
           )}
         </>
       )}
@@ -226,7 +246,7 @@ function App() {
 }
 
 const inputStyle = {
-  width: '100%',
+  width: '40ch',
   fontSize: '18px',
   padding: '10px',
   marginBottom: '10px'
