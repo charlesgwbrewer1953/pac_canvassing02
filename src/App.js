@@ -116,8 +116,9 @@ function App() {
       }
     } catch (err) {
       console.error("❌ Failed to send report:", err);
-        alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${err.stack || ''}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to "Anyone with the link"\n- You are connected to the internet\n- The secret token matches`);
-    }
+
+alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${err.stack || ''}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to "Anyone with the link"\n- You are connected to the internet\n- The secret token matches`);
+
   };
 
   const getFormSteps = () => {
@@ -324,4 +325,4 @@ const radioInputStyle = {
   cursor: 'pointer'
 };
 
-export default App;
+export default App;// redeploy trigger
