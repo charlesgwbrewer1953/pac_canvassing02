@@ -1,6 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import StepForm from './StepForm';
 import { shuffle, generateCSVAndJSON } from './utils';
+
+// Version info
+const version = { major: 0, minor: 0, patch: 6 };
 
 function App() {
   const [userId, setUserId] = useState('');
@@ -71,36 +75,49 @@ function App() {
     }
   };
 
-  const sendResults = async () => {
-    const { csv, json } = generateCSVAndJSON(responses, addressData);
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7VrjE3osFl-kZyhjP_M6P1nYA-qlNAmMw5qDD10dBMgOtmxR6zI02x9CKrerz4ho/exec';
 
-    fetch('https://script.google.com/macros/s/AKfycbxWs_mUlycyVA9FvXUti-DfAWg3AMa1CZVEDCvMimzU2je7VaoDL-TnocnVbFt21IC6/exec', {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: canvasserEmail,
-        canvasser: canvasserName,
-        date: new Date().toISOString(),
-        csv,
-        json,
-        secret: "DEMOGRAPHIKON2024"
-      })
-    })
-      .then(res => res.text())
-      .then(result => {
-        if (result.includes("✅")) {
-          alert("✅ Report sent via Gmail!");
-        } else {
-          alert("⚠️ Something went wrong.\n\n" + result);
-        }
-      })
-      .catch(err => {
-        console.error("❌ Failed to send report:", err);
-        alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to \"Anyone with the link\"\n- You are connected to the internet\n- The secret token matches`);
+  const sendResults = async () => {
+    const { json } = generateCSVAndJSON(responses, addressData);
+    try {
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          to: canvasserEmail,
+          canvasser: canvasserName,
+          date: new Date().toISOString(),
+          json,
+          secret: "DEMOGRAPHIKON2024"
+        })
       });
+
+      // Try to get as much info as possible
+      let diagnostics = '';
+      diagnostics += `Status: ${response.status} ${response.statusText}\n`;
+      diagnostics += `Type: ${response.type}\n`;
+      diagnostics += `URL: ${response.url}\n`;
+      diagnostics += `Headers: ${JSON.stringify([...response.headers])}\n`;
+
+      let resultText = '';
+      try {
+        resultText = await response.text();
+      } catch (e) {
+        diagnostics += `Error reading response body: ${e.message || e}`;
+      }
+
+      if (resultText.includes("✅")) {
+        alert("✅ Report sent via Gmail!");
+      } else {
+        alert(`⚠️ Something went wrong.\n\n${resultText}\n\nDiagnostics:\n${diagnostics}`);
+      }
+    } catch (err) {
+      console.error("❌ Failed to send report:", err);
+      alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${err.stack || ''}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to \"Anyone with the link\"\n- You are connected to the internet\n- The secret token matches`);
+    }
   };
 
   const getFormSteps = () => {
@@ -156,7 +173,13 @@ function App() {
   if (!loggedIn) {
     return (
       <div style={{ padding: 20 }}>
-        <h1 style={titleStyle}>demographikon</h1>
+        <div style={{ position: 'relative' }}>
+          <h1 style={titleStyle}>demographikon
+            <span style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontStyle: 'italic', fontSize: '0.2em', color: '#888', fontWeight: 400 }}>
+              Version {version.major}.{version.minor}.{version.patch}
+            </span>
+          </h1>
+        </div>
         <label>Enter User ID:<br />
           <input value={userId} onChange={e => setUserId(e.target.value)} style={inputStyle} />
         </label><br /><br />
@@ -166,8 +189,14 @@ function App() {
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <h1 style={titleStyle}>demographikon</h1>
+    <div style={{ padding: 20, backgroundColor: 'rgb(227, 227, 227)' }}>
+      <div style={{ position: 'relative' }}>
+        <h1 style={titleStyle}>demographikon
+          <span style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontStyle: 'italic', fontSize: '0.2em', color: '#888', fontWeight: 400 }}>
+            Version {version.major}.{version.minor}.{version.patch}
+          </span>
+        </h1>
+      </div>
       <div>
         <label>Select Address:<br />
           <select
@@ -190,8 +219,8 @@ function App() {
 
       {currentAddress && (
         <>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ ...radioLabelStyle, color: 'black' }}>
+          <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
+            <label style={{ ...radioLabelStyle, color: 'black', marginLeft: 0 }}>
               <input
                 type="radio"
                 name="response"
@@ -202,7 +231,7 @@ function App() {
               />
               Response
             </label>
-            <label style={{ ...radioLabelStyle, marginLeft: '20px', color: 'black' }}>
+            <label style={{ ...radioLabelStyle, color: 'black', marginLeft: 0 }}>
               <input
                 type="radio"
                 name="response"
