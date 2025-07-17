@@ -325,4 +325,6 @@ const radioInputStyle = {
   cursor: 'pointer'
 };
 
-export default App;// redeploy trigger
+}
+
+export default App;
