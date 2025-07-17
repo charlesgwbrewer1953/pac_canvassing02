@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/charlesgwbrewer1953/pac_canvassing02/static/css/main.e6c13ad2.css",
+    "main.js": "/charlesgwbrewer1953/pac_canvassing02/static/js/main.6e9afdaa.js",
+    "static/js/453.ff8ad525.chunk.js": "/charlesgwbrewer1953/pac_canvassing02/static/js/453.ff8ad525.chunk.js",
+    "index.html": "/charlesgwbrewer1953/pac_canvassing02/index.html",
+    "main.e6c13ad2.css.map": "/charlesgwbrewer1953/pac_canvassing02/static/css/main.e6c13ad2.css.map",
+    "main.6e9afdaa.js.map": "/charlesgwbrewer1953/pac_canvassing02/static/js/main.6e9afdaa.js.map",
+    "453.ff8ad525.chunk.js.map": "/charlesgwbrewer1953/pac_canvassing02/static/js/453.ff8ad525.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e6c13ad2.css",
+    "static/js/main.6e9afdaa.js"
+  ]
+}
