@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import StepForm from './StepForm';
 import { shuffle, generateCSVAndJSON } from './utils';
@@ -6,13 +5,63 @@ import { shuffle, generateCSVAndJSON } from './utils';
 // Version info
 const version = { major: 0, minor: 0, patch: 6 };
 
+// Styles defined at the top
+const inputStyle = {
+  width: '40ch',
+  fontSize: '18px',
+  padding: '10px',
+  marginBottom: '10px'
+};
+
+const buttonStyle = {
+  padding: '10px 20px',
+  fontSize: '16px',
+  backgroundColor: '#007bff',
+  color: '#fff',
+  border: 'none',
+  borderRadius: '6px',
+  marginTop: '10px'
+};
+
+const titleStyle = {
+  fontFamily: "'Roboto', sans-serif",
+  fontWeight: 300,
+  fontSize: '36px',
+  marginBottom: '20px',
+  color: '#222',
+  textAlign: 'center',
+  position: 'sticky',
+  top: 0,
+  backgroundColor: '#fff',
+  padding: '10px',
+  zIndex: 1000,
+  borderBottom: '1px solid #ccc'
+};
+
+const radioLabelStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  fontSize: '20px',
+  padding: '10px 16px',
+  backgroundColor: '#e8e8e8',
+  borderRadius: '8px',
+  border: '2px solid #ccc',
+  cursor: 'pointer'
+};
+
+const radioInputStyle = {
+  width: '24px',
+  height: '24px',
+  marginRight: '12px',
+  cursor: 'pointer'
+};
+
 function App() {
   const [userId, setUserId] = useState('');
   const [loggedIn, setLoggedIn] = useState(false);
   const [emailMap, setEmailMap] = useState({});
   const [canvasserEmail, setCanvasserEmail] = useState('');
   const [canvasserName, setCanvasserName] = useState('');
-
   const [addressData, setAddressData] = useState([]);
   const [visited, setVisited] = useState([]);
   const [formData, setFormData] = useState({});
@@ -22,6 +71,19 @@ function App() {
   const [adminMode, setAdminMode] = useState(false);
 
   useEffect(() => {
+    // Load saved responses from localStorage
+    const savedData = localStorage.getItem('canvassData');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setResponses(parsed);
+        setVisited(parsed.map(r => r.address));
+      } catch (e) {
+        console.error('Error loading saved data:', e);
+      }
+    }
+
+    // Load addressData and emailMap dynamically from JSON files
     fetch('/address_data.json')
       .then(res => res.json())
       .then(data => {
@@ -34,13 +96,55 @@ function App() {
       .then(data => setEmailMap(data));
   }, []);
 
-  useEffect(() => {
-    console.log("📌 Address selected:", currentAddress);
-  }, [currentAddress]);
+  const getFormSteps = () => {
+    const selected = addressData.find(a => a.address === formData.address);
+    const residents = selected?.residents || [];
 
-  useEffect(() => {
-    console.log("🧾 formData.address:", formData.address);
-  }, [formData.address]);
+    console.log("🧠 Matching address:", formData.address);
+    console.log("✅ Found:", selected);
+    console.log("👥 Residents:", residents);
+
+    return [
+      {
+        name: 'residents',
+        label: 'Who was spoken to?',
+        type: 'checkbox',
+        options: residents
+      },
+      {
+        name: 'party',
+        label: 'Party Preference',
+        type: 'radio',
+        options: [
+          { value: 'CON', label: 'Conservative', color: 'blue' },
+          { value: 'LAB', label: 'Labour', color: 'red' },
+          { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
+          { value: 'REF', label: 'Reform', color: 'teal' },
+          { value: 'OTH', label: 'Other', color: 'green' },
+          { value: 'NONE', label: 'None', color: 'black' }
+        ]
+      },
+      {
+        name: 'support',
+        label: 'Support level',
+        type: 'select',
+        options: ['member', 'strong', 'lean to', 'none']
+      },
+      {
+        name: 'likelihood',
+        label: 'Likelihood of Voting',
+        type: 'select',
+        options: ['definitely', 'probably', 'unlikely', 'no']
+      },
+      {
+        name: 'issue',
+        label: 'Most Important Issue',
+        type: 'radio',
+        options: shuffle(['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'])
+      },
+      { name: 'notes', label: 'Notes', type: 'textarea' }
+    ];
+  };
 
   const handleLogin = () => {
     if (emailMap[userId]) {
@@ -117,58 +221,8 @@ function App() {
     } catch (err) {
       console.error("❌ Failed to send report:", err);
 
-alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${err.stack || ''}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to "Anyone with the link"\n- You are connected to the internet\n- The secret token matches`);
-
-  };
-
-  const getFormSteps = () => {
-    const selected = addressData.find(a => a.address === formData.address);
-    const residents = selected?.residents || [];
-
-    console.log("🧠 Matching address:", formData.address);
-    console.log("✅ Found:", selected);
-    console.log("👥 Residents:", residents);
-
-    return [
-      {
-        name: 'residents',
-        label: 'Who was spoken to?',
-        type: 'checkbox',
-        options: residents
-      },
-      {
-        name: 'party',
-        label: 'Party Preference',
-        type: 'radio',
-        options: [
-          { value: 'CON', label: 'Conservative', color: 'blue' },
-          { value: 'LAB', label: 'Labour', color: 'red' },
-          { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
-          { value: 'REF', label: 'Reform', color: 'teal' },
-          { value: 'OTH', label: 'Other', color: 'green' },
-          { value: 'NONE', label: 'None', color: 'black' }
-        ]
-      },
-      {
-        name: 'support',
-        label: 'Support level',
-        type: 'select',
-        options: ['member', 'strong', 'lean to', 'none']
-      },
-      {
-        name: 'likelihood',
-        label: 'Likelihood of Voting',
-        type: 'select',
-        options: ['definitely', 'probably', 'unlikely', 'no']
-      },
-      {
-        name: 'issue',
-        label: 'Most Important Issue',
-        type: 'radio',
-        options: shuffle(['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'])
-      },
-      { name: 'notes', label: 'Notes', type: 'textarea' }
-    ];
+      alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${err.stack || ''}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to "Anyone with the link"\n- You are connected to the internet\n- The secret token matches`);
+    }
   };
 
   if (!loggedIn) {
@@ -273,58 +327,6 @@ alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${er
       </div>
     </div>
   );
-}
-
-const inputStyle = {
-  width: '40ch',
-  fontSize: '18px',
-  padding: '10px',
-  marginBottom: '10px'
-};
-
-const buttonStyle = {
-  padding: '10px 20px',
-  fontSize: '16px',
-  backgroundColor: '#007bff',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '6px',
-  marginTop: '10px'
-};
-
-const titleStyle = {
-  fontFamily: "'Roboto', sans-serif",
-  fontWeight: 300,
-  fontSize: '36px',
-  marginBottom: '20px',
-  color: '#222',
-  textAlign: 'center',
-  position: 'sticky',
-  top: 0,
-  backgroundColor: '#fff',
-  padding: '10px',
-  zIndex: 1000,
-  borderBottom: '1px solid #ccc'
-};
-
-const radioLabelStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  fontSize: '20px',
-  padding: '10px 16px',
-  backgroundColor: '#e8e8e8',
-  borderRadius: '8px',
-  border: '2px solid #ccc',
-  cursor: 'pointer'
-};
-
-const radioInputStyle = {
-  width: '24px',
-  height: '24px',
-  marginRight: '12px',
-  cursor: 'pointer'
-};
-
 }
 
 export default App;
