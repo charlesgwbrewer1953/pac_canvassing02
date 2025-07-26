@@ -5,7 +5,7 @@ import { shuffle, generateCSVAndJSON } from './utils';
 // Version info
 const version = { major: 0, minor: 0, patch: 6 };
 
-// Styles defined at the top
+// Styles
 const inputStyle = {
   width: '40ch',
   fontSize: '18px',
@@ -70,39 +70,10 @@ function App() {
   const [step, setStep] = useState(0);
   const [adminMode, setAdminMode] = useState(false);
 
-  useEffect(() => {
-    // Load saved responses from localStorage
-    const savedData = localStorage.getItem('canvassData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setResponses(parsed);
-        setVisited(parsed.map(r => r.address));
-      } catch (e) {
-        console.error('Error loading saved data:', e);
-      }
-    }
-
-    // Load addressData and emailMap dynamically from JSON files
-    fetch('/address_data.json')
-      .then(res => res.json())
-      .then(data => {
-        console.log("📦 Address data loaded:", data);
-        setAddressData(data);
-      });
-
-    fetch('/user_emails.json')
-      .then(res => res.json())
-      .then(data => setEmailMap(data));
-  }, []);
-
-  const getFormSteps = () => {
+  // ✅ Define getFormSteps BEFORE any usage
+  function getFormSteps() {
     const selected = addressData.find(a => a.address === formData.address);
     const residents = selected?.residents || [];
-
-    console.log("🧠 Matching address:", formData.address);
-    console.log("✅ Found:", selected);
-    console.log("👥 Residents:", residents);
 
     return [
       {
@@ -142,19 +113,13 @@ function App() {
         type: 'radio',
         options: shuffle(['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'])
       },
-      { name: 'notes', label: 'Notes', type: 'textarea' }
+      {
+        name: 'notes',
+        label: 'Notes',
+        type: 'textarea'
+      }
     ];
-  };
-
-  const handleLogin = () => {
-    if (emailMap[userId]) {
-      setCanvasserEmail(emailMap[userId]);
-      setCanvasserName(userId);
-      setLoggedIn(true);
-    } else {
-      alert("Unknown user ID");
-    }
-  };
+  }
 
   const saveResponse = (data, auto = false) => {
     const newEntry = {
@@ -170,6 +135,7 @@ function App() {
     localStorage.setItem('canvassData', JSON.stringify(newResponses));
 
     const steps = getFormSteps();
+
     if (auto || step === steps.length - 1) {
       setStep(0);
       setFormData({});
@@ -179,58 +145,88 @@ function App() {
     }
   };
 
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7VrjE3osFl-kZyhjP_M6P1nYA-qlNAmMw5qDD10dBMgOtmxR6zI02x9CKrerz4ho/exec';
-
-  const sendResults = async () => {
-    const { json } = generateCSVAndJSON(responses, addressData);
-    try {
-      const response = await fetch(GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          to: canvasserEmail,
-          canvasser: canvasserName,
-          date: new Date().toISOString(),
-          json,
-          secret: "DEMOGRAPHIKON2024"
-        })
-      });
-
-      // Try to get as much info as possible
-      let diagnostics = '';
-      diagnostics += `Status: ${response.status} ${response.statusText}\n`;
-      diagnostics += `Type: ${response.type}\n`;
-      diagnostics += `URL: ${response.url}\n`;
-      diagnostics += `Headers: ${JSON.stringify([...response.headers])}\n`;
-
-      let resultText = '';
-      try {
-        resultText = await response.text();
-      } catch (e) {
-        diagnostics += `Error reading response body: ${e.message || e}`;
-      }
-
-      if (resultText.includes("✅")) {
-        alert("✅ Report sent via Gmail!");
-      } else {
-        alert(`⚠️ Something went wrong.\n\n${resultText}\n\nDiagnostics:\n${diagnostics}`);
-      }
-    } catch (err) {
-      console.error("❌ Failed to send report:", err);
-
-      alert(`❌ Error sending email.\n\nDetails: ${err.message || err}\n\nStack: ${err.stack || ''}\n\nPlease check:\n- Google Apps Script URL is correct\n- The script is deployed as a Web App\n- Access is set to "Anyone with the link"\n- You are connected to the internet\n- The secret token matches`);
+  const handleLogin = () => {
+    if (emailMap[userId]) {
+      setCanvasserEmail(emailMap[userId]);
+      setCanvasserName(userId);
+      setLoggedIn(true);
+    } else {
+      alert("Unknown user ID");
     }
   };
+
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7VrjE3osFl-kZyhjP_M6P1nYA-qlNAmMw5qDD10dBMgOtmxR6zI02x9CKrerz4ho/exec';
+
+const sendResults = async () => {
+  const { json } = generateCSVAndJSON(responses, addressData);
+  try {
+    const response = await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        to: canvasserEmail,
+        canvasser: canvasserName,
+        date: new Date().toISOString(),
+        json,
+        secret: "DEMOGRAPHIKON2024"
+      })
+    });
+    if (response.ok) {
+      alert("✅ Report sent via Gmail!");
+    } else {
+      alert("❌ Failed to send report. Server error.");
+      console.error('Send error: Server responded with', response.status, response.statusText);
+    }
+  } catch (err) {
+    alert("❌ Failed to send report. Network error.");
+    console.error('Send error:', err);
+  }
+};
+
+  useEffect(() => {
+    const savedData = localStorage.getItem('canvassData');
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        setResponses(parsed);
+        setVisited(parsed.map(r => r.address));
+      } catch (e) {
+        console.error('Error loading saved data:', e);
+      }
+    }
+
+    fetch('/address_data.json')
+      .then(res => res.json())
+      .then(data => {
+        console.log("📦 Address data loaded:", data);
+        setAddressData(data);
+      });
+
+    fetch('/user_emails.json')
+      .then(res => {
+        if (!res.ok) throw new Error('Network response was not ok');
+        return res.json();
+      })
+      .then(data => setEmailMap(data))
+      .catch(err => {
+        console.error('Error loading user_emails.json:', err);
+      });
+  }, []);
 
   if (!loggedIn) {
     return (
       <div style={{ padding: 20 }}>
         <div style={{ position: 'relative' }}>
           <h1 style={titleStyle}>demographikon
-            <span style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontStyle: 'italic', fontSize: '0.2em', color: '#888', fontWeight: 400 }}>
+            <span style={{
+              position: 'absolute', right: 0, top: '50%',
+              transform: 'translateY(-50%)',
+              fontStyle: 'italic', fontSize: '0.2em',
+              color: '#888', fontWeight: 400
+            }}>
               Version {version.major}.{version.minor}.{version.patch}
             </span>
           </h1>
@@ -247,18 +243,23 @@ function App() {
     <div style={{ padding: 20, backgroundColor: 'rgb(227, 227, 227)' }}>
       <div style={{ position: 'relative' }}>
         <h1 style={titleStyle}>demographikon
-          <span style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontStyle: 'italic', fontSize: '0.2em', color: '#888', fontWeight: 400 }}>
+          <span style={{
+            position: 'absolute', right: 0, top: '50%',
+            transform: 'translateY(-50%)',
+            fontStyle: 'italic', fontSize: '0.2em',
+            color: '#888', fontWeight: 400
+          }}>
             Version {version.major}.{version.minor}.{version.patch}
           </span>
         </h1>
       </div>
+
       <div>
         <label>Select Address:<br />
           <select
             value={currentAddress}
             onChange={(e) => {
               const selected = e.target.value;
-              console.log("Selected address:", selected);
               setCurrentAddress(selected);
               setFormData({ address: selected });
             }}
@@ -266,7 +267,9 @@ function App() {
           >
             <option value="">-- Choose an address --</option>
             {addressData.map((entry, idx) => (
-              <option key={idx} value={entry.address}>{entry.address}{visited.includes(entry.address) ? ' (visited)' : ''}</option>
+              <option key={idx} value={entry.address}>
+                {entry.address}{visited.includes(entry.address) ? ' (visited)' : ''}
+              </option>
             ))}
           </select>
         </label>
@@ -275,7 +278,7 @@ function App() {
       {currentAddress && (
         <>
           <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
-            <label style={{ ...radioLabelStyle, color: 'black', marginLeft: 0 }}>
+            <label style={{ ...radioLabelStyle }}>
               <input
                 type="radio"
                 name="response"
@@ -286,7 +289,7 @@ function App() {
               />
               Response
             </label>
-            <label style={{ ...radioLabelStyle, color: 'black', marginLeft: 0 }}>
+            <label style={{ ...radioLabelStyle }}>
               <input
                 type="radio"
                 name="response"
@@ -303,16 +306,13 @@ function App() {
           </div>
 
           {formData.response === 'Response' && (
-            <>
-              {console.log("📤 Step passed to StepForm:", getFormSteps()[step])}
-              <StepForm
-                step={step}
-                formData={formData}
-                setFormData={setFormData}
-                stepConfig={getFormSteps()[step]}
-                onNext={() => saveResponse(formData)}
-              />
-            </>
+            <StepForm
+              step={step}
+              formData={formData}
+              setFormData={setFormData}
+              stepConfig={getFormSteps()[step]}
+              onNext={() => saveResponse(formData)}
+            />
           )}
         </>
       )}
