@@ -4,7 +4,7 @@ import { shuffle, generateCSVAndJSON } from './utils';
 import { fetchAddressDataWithFallback } from './gcsUtils';
 
 // Version info
-const version = { major: 0, minor: 0, patch: 6 };
+const version = { major: 0, minor: 1, patch: 0 };
 
 // Styles
 const inputStyle = {
@@ -70,6 +70,8 @@ function App() {
   const [currentAddress, setCurrentAddress] = useState('');
   const [step, setStep] = useState(0);
   const [adminMode, setAdminMode] = useState(false);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [dataError, setDataError] = useState(null);
 
   // ✅ Define getFormSteps BEFORE any usage
   function getFormSteps() {
@@ -199,18 +201,24 @@ const sendResults = async () => {
       }
     }
 
-    // GCS URL for address data
-    const GCS_ADDRESS_DATA_URL = 'https://storage.cloud.google.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062413.csv?authuser=2';
+    // GCS URL for address data (try without authuser parameter first)
+    const GCS_ADDRESS_DATA_URL = 'https://storage.googleapis.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062413.csv';
+    const SAMPLE_CSV_URL = '/sample_address_data.csv';
+    
+    setDataLoading(true);
+    setDataError(null);
     
     // Fetch address data from GCS with fallback to local
-    fetchAddressDataWithFallback(GCS_ADDRESS_DATA_URL, '/address_data.json')
+    fetchAddressDataWithFallback(GCS_ADDRESS_DATA_URL, SAMPLE_CSV_URL)
       .then(data => {
         console.log("📦 Address data loaded:", data);
         setAddressData(data);
+        setDataLoading(false);
       })
       .catch(err => {
         console.error('❌ Failed to load address data:', err);
-        // Could set an error state here for user notification
+        setDataError(err.message);
+        setDataLoading(false);
       });
 
     fetch('/user_emails.json')
@@ -264,23 +272,38 @@ const sendResults = async () => {
 
       <div>
         <label>Select Address:<br />
-          <select
-            value={currentAddress}
-            onChange={(e) => {
-              const selected = e.target.value;
-              setCurrentAddress(selected);
-              setFormData({ address: selected });
-            }}
-            style={inputStyle}
-          >
-            <option value="">-- Choose an address --</option>
-            {addressData.map((entry, idx) => (
-              <option key={idx} value={entry.address}>
-                {entry.address}{visited.includes(entry.address) ? ' (visited)' : ''}
-              </option>
-            ))}
-          </select>
+          {dataLoading ? (
+            <div style={{...inputStyle, display: 'flex', alignItems: 'center', backgroundColor: '#f0f0f0'}}>
+              📡 Loading address data from GCS...
+            </div>
+          ) : dataError ? (
+            <div style={{...inputStyle, display: 'flex', alignItems: 'center', backgroundColor: '#ffe6e6', color: '#d00'}}>
+              ❌ Error loading data: {dataError}
+            </div>
+          ) : (
+            <select
+              value={currentAddress}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setCurrentAddress(selected);
+                setFormData({ address: selected });
+              }}
+              style={inputStyle}
+            >
+              <option value="">-- Choose an address --</option>
+              {addressData.map((entry, idx) => (
+                <option key={idx} value={entry.address}>
+                  {entry.address}{visited.includes(entry.address) ? ' (visited)' : ''}
+                </option>
+              ))}
+            </select>
+          )}
         </label>
+        {!dataLoading && !dataError && (
+          <div style={{fontSize: '14px', color: '#666', marginTop: '5px'}}>
+            📊 {addressData.length} addresses loaded from GCS
+          </div>
+        )}
       </div><br />
 
       {currentAddress && (
