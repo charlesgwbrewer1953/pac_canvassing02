@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StepForm from './StepForm';
 import { shuffle, generateCSVAndJSON } from './utils';
+import { fetchAddressDataWithFallback } from './gcsUtils';
 
 // Version info
 const version = { major: 0, minor: 0, patch: 6 };
@@ -198,11 +199,18 @@ const sendResults = async () => {
       }
     }
 
-    fetch('/address_data.json')
-      .then(res => res.json())
+    // GCS URL for address data
+    const GCS_ADDRESS_DATA_URL = 'https://storage.cloud.google.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062413.csv?authuser=2';
+    
+    // Fetch address data from GCS with fallback to local
+    fetchAddressDataWithFallback(GCS_ADDRESS_DATA_URL, '/address_data.json')
       .then(data => {
         console.log("📦 Address data loaded:", data);
         setAddressData(data);
+      })
+      .catch(err => {
+        console.error('❌ Failed to load address data:', err);
+        // Could set an error state here for user notification
       });
 
     fetch('/user_emails.json')
