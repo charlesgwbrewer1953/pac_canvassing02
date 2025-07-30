@@ -21,3 +21,10 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Google Cloud Storage authentication
+**/gcs-service-account.json
+**/service-account-*.json
+**/*-credentials.json
+/config/auth.json
+/server/config/*.json
