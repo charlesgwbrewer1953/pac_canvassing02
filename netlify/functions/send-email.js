@@ -1,4 +1,9 @@
+const fetch = require('node-fetch');
+
 exports.handler = async (event, context) => {
+  console.log('=== FUNCTION START ===');
+  console.log('Method:', event.httpMethod);
+  
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 200,
@@ -20,10 +25,24 @@ exports.handler = async (event, context) => {
   }
 
   try {
+    console.log('=== PARSING REQUEST ===');
+    console.log('Request body:', event.body);
+    
     const { canvasser, canvasserEmail, date, json } = JSON.parse(event.body);
     
-    if (!process.env.BREVO_API_KEY) {
-  throw new Error('BREVO_API_KEY_PROD not configured');
+    console.log('Parsed data:');
+    console.log('- Canvasser:', canvasser);
+    console.log('- Email:', canvasserEmail);
+    console.log('- Date:', date);
+    console.log('- JSON entries:', json?.length || 0);
+    
+    console.log('=== CHECKING API KEY ===');
+    console.log('Has BREVO_API_KEY_PROD:', !!process.env.BREVO_API_KEY_PROD);
+    console.log('Key length:', process.env.BREVO_API_KEY_PROD?.length || 0);
+    
+    if (!process.env.BREVO_API_KEY_PROD) {
+      console.error('BREVO_API_KEY_PROD not found in environment');
+      throw new Error('BREVO_API_KEY_PROD not configured');
     }
 
     const htmlContent = `
@@ -47,6 +66,9 @@ exports.handler = async (event, context) => {
       htmlContent: htmlContent
     };
 
+    console.log('=== CALLING BREVO API ===');
+    console.log('Email data being sent:', JSON.stringify(emailData, null, 2));
+    
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
@@ -57,22 +79,55 @@ exports.handler = async (event, context) => {
       body: JSON.stringify(emailData)
     });
 
-    const result = await response.json();
+    console.log('=== BREVO RESPONSE ===');
+    console.log('Status:', response.status);
+    console.log('Status Text:', response.statusText);
+    console.log('Headers:', Object.fromEntries(response.headers));
+    
+    const responseText = await response.text();
+    console.log('Raw response body:', responseText);
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+      console.log('Parsed response:', JSON.stringify(result, null, 2));
+    } catch (parseError) {
+      console.error('Failed to parse JSON response:', parseError);
+      result = { error: 'Invalid JSON response', rawResponse: responseText };
+    }
     
     if (response.ok) {
+      console.log('=== EMAIL SENT SUCCESSFULLY ===');
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ success: true, messageId: result.messageId })
       };
     } else {
-      throw new Error(`Brevo API error: ${result.message}`);
+      console.error('=== BREVO API ERROR ===');
+      console.error('Status Code:', response.status);
+      console.error('Error Response:', JSON.stringify(result, null, 2));
+      console.error('Request Data:', JSON.stringify(emailData, null, 2));
+      
+      const errorMessage = result.message || result.error || result.code || 'Unknown Brevo error';
+      const fullError = `Brevo API error (${response.status}): ${errorMessage}. Full response: ${JSON.stringify(result)}`;
+      
+      throw new Error(fullError);
     }
   } catch (error) {
+    console.error('=== FUNCTION ERROR ===');
+    console.error('Error type:', error.constructor.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
     return {
       statusCode: 500,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ success: false, error: error.message })
+      body: JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        errorType: error.constructor.name
+      })
     };
   }
 };

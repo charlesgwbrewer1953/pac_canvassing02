@@ -165,7 +165,7 @@ function App() {
     console.log('📤 Sending report to demographikon...');
     
     try {
-      const apiUrl = '/.netlify/functions/send-email';
+      const apiUrl = '/.netlify/functions/send-email.js';
       
       const response = await fetch(apiUrl, {
         method: 'POST',
