@@ -6,7 +6,7 @@ import { fetchAddressDataWithFallback } from './gcsUtils';
 // Version info
 const version = { major: 0, minor: 1, patch: 0 };
 
-// Styles
+// Styles (keep existing styles...)
 const inputStyle = {
   width: '40ch',
   fontSize: '18px',
@@ -60,8 +60,6 @@ const radioInputStyle = {
 function App() {
   const [userId, setUserId] = useState('');
   const [loggedIn, setLoggedIn] = useState(false);
-  const [emailMap, setEmailMap] = useState({});
-  const [canvasserEmail, setCanvasserEmail] = useState('');
   const [canvasserName, setCanvasserName] = useState('');
   const [addressData, setAddressData] = useState([]);
   const [visited, setVisited] = useState([]);
@@ -73,7 +71,6 @@ function App() {
   const [dataLoading, setDataLoading] = useState(true);
   const [dataError, setDataError] = useState(null);
 
-  // ✅ Define getFormSteps BEFORE any usage
   function getFormSteps() {
     const selected = addressData.find(a => a.address === formData.address);
     const residents = selected?.residents || [];
@@ -130,7 +127,10 @@ function App() {
       timestamp: new Date().toISOString(),
       canvasser: canvasserName
     };
-    const newResponses = [...responses, newEntry];
+    
+    // CORE REQUIREMENT #2: Remove any existing entry for this address, keep only the latest
+    const filteredResponses = responses.filter(r => r.address !== data.address);
+    const newResponses = [...filteredResponses, newEntry];
     const newVisited = [...new Set([...visited, data.address])];
 
     setResponses(newResponses);
@@ -148,48 +148,56 @@ function App() {
     }
   };
 
+  // Simplified login - just accept any user ID
   const handleLogin = () => {
-    if (emailMap[userId]) {
-      setCanvasserEmail(emailMap[userId]);
-      setCanvasserName(userId);
+    if (userId.trim()) {
+      setCanvasserName(userId.trim());
       setLoggedIn(true);
     } else {
-      alert("Unknown user ID");
+      alert("Please enter a user ID");
     }
   };
 
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw7VrjE3osFl-kZyhjP_M6P1nYA-qlNAmMw5qDD10dBMgOtmxR6zI02x9CKrerz4ho/exec';
-
-const sendResults = async () => {
-  const { json } = generateCSVAndJSON(responses, addressData);
-  try {
-    const response = await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      mode: 'cors',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: canvasserEmail,
-        canvasser: canvasserName,
-        date: new Date().toISOString(),
-        json,
-        secret: "DEMOGRAPHIKON2024"
-      })
-    });
-    if (response.ok) {
-      alert("✅ Report sent via Gmail!");
-    } else {
-      alert("❌ Failed to send report. Server error.");
-      console.error('Send error: Server responded with', response.status, response.statusText);
+  // CORE REQUIREMENT #3: Send JSON to demographikon address via Brevo
+  const sendResults = async () => {
+    const { json } = generateCSVAndJSON(responses, addressData);
+    
+    console.log('📤 Sending report to demographikon...');
+    
+    try {
+      const apiUrl = process.env.NODE_ENV === 'production' 
+        ? '/.netlify/functions/send-email'
+        : 'http://localhost:8888/.netlify/functions/send-email';
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          canvasser: canvasserName,
+          date: new Date().toISOString(),
+          json,
+          // Send to fixed demographikon address
+          recipientEmail: 'demographikon@example.com' // Update this to actual email
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ Report sent to demographikon! Message ID: ${result.messageId}`);
+      } else {
+        alert(`❌ Failed to send report: ${result.message}`);
+      }
+    } catch (err) {
+      alert("❌ Failed to send report. Network error.");
+      console.error('Send error:', err);
     }
-  } catch (err) {
-    alert("❌ Failed to send report. Network error.");
-    console.error('Send error:', err);
-  }
-};
+  };
 
   useEffect(() => {
+    // Load saved responses
     const savedData = localStorage.getItem('canvassData');
     if (savedData) {
       try {
@@ -201,14 +209,14 @@ const sendResults = async () => {
       }
     }
 
-    // GCS URL for address data (try without authuser parameter first)
+    // CORE REQUIREMENT #1: Load address data from external file
+    // FIXED: Use googleapis.com not cloud.google.com
     const GCS_ADDRESS_DATA_URL = 'https://storage.googleapis.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062413.csv';
     const SAMPLE_CSV_URL = '/sample_address_data.csv';
     
     setDataLoading(true);
     setDataError(null);
     
-    // Fetch address data from GCS with fallback to local
     fetchAddressDataWithFallback(GCS_ADDRESS_DATA_URL, SAMPLE_CSV_URL)
       .then(data => {
         console.log("📦 Address data loaded:", data);
@@ -221,15 +229,7 @@ const sendResults = async () => {
         setDataLoading(false);
       });
 
-    fetch('/user_emails.json')
-      .then(res => {
-        if (!res.ok) throw new Error('Network response was not ok');
-        return res.json();
-      })
-      .then(data => setEmailMap(data))
-      .catch(err => {
-        console.error('Error loading user_emails.json:', err);
-      });
+    // REMOVED: No longer fetch user_emails.json
   }, []);
 
   if (!loggedIn) {
@@ -248,7 +248,12 @@ const sendResults = async () => {
           </h1>
         </div>
         <label>Enter User ID:<br />
-          <input value={userId} onChange={e => setUserId(e.target.value)} style={inputStyle} />
+          <input 
+            value={userId} 
+            onChange={e => setUserId(e.target.value)} 
+            style={inputStyle}
+            onKeyPress={e => e.key === 'Enter' && handleLogin()}
+          />
         </label><br /><br />
         <button onClick={handleLogin} style={buttonStyle}>Login</button>
       </div>
@@ -274,7 +279,7 @@ const sendResults = async () => {
         <label>Select Address:<br />
           {dataLoading ? (
             <div style={{...inputStyle, display: 'flex', alignItems: 'center', backgroundColor: '#f0f0f0'}}>
-              📡 Loading address data from GCS...
+              📡 Loading address data...
             </div>
           ) : dataError ? (
             <div style={{...inputStyle, display: 'flex', alignItems: 'center', backgroundColor: '#ffe6e6', color: '#d00'}}>
@@ -301,7 +306,7 @@ const sendResults = async () => {
         </label>
         {!dataLoading && !dataError && (
           <div style={{fontSize: '14px', color: '#666', marginTop: '5px'}}>
-            📊 {addressData.length} addresses loaded from GCS
+            📊 {addressData.length} addresses loaded
           </div>
         )}
       </div><br />
@@ -352,7 +357,12 @@ const sendResults = async () => {
         <button onClick={() => setAdminMode(!adminMode)} style={buttonStyle}>Admin</button>
         {adminMode && (
           <div style={{ marginTop: 20 }}>
-            <button onClick={sendResults} style={{ ...buttonStyle, backgroundColor: 'green' }}>Send Full Report</button>
+            <button onClick={sendResults} style={{ ...buttonStyle, backgroundColor: 'green' }}>
+              Send Report to Demographikon
+            </button>
+            <div style={{ marginTop: 10, fontSize: '14px', color: '#666' }}>
+              📊 Current responses: {responses.length} addresses
+            </div>
           </div>
         )}
       </div>
