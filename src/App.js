@@ -165,9 +165,7 @@ function App() {
     console.log('📤 Sending report to demographikon...');
     
     try {
-      const apiUrl = process.env.NODE_ENV === 'production' 
-        ? '/.netlify/functions/send-email'
-        : 'http://localhost:8888/.netlify/functions/send-email';
+      const apiUrl = '/.netlify/functions/send-email';
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -176,10 +174,10 @@ function App() {
         },
         body: JSON.stringify({
           canvasser: canvasserName,
+          canvasserEmail: `${canvasserName}@canvasser.com`, // CHANGED: was recipientEmail
           date: new Date().toISOString(),
-          json,
-          // Send to fixed demographikon address
-          recipientEmail: 'demographikon@example.com' // Update this to actual email
+          json
+          // REMOVED: recipientEmail - the function hardcodes the recipient
         })
       });
       

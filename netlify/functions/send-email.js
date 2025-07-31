@@ -23,7 +23,7 @@ exports.handler = async (event, context) => {
     const { canvasser, canvasserEmail, date, json } = JSON.parse(event.body);
     
     if (!process.env.BREVO_API_KEY) {
-      throw new Error('BREVO_API_KEY not configured');
+  throw new Error('BREVO_API_KEY_PROD not configured');
     }
 
     const htmlContent = `
@@ -51,7 +51,7 @@ exports.handler = async (event, context) => {
       method: 'POST',
       headers: {
         'accept': 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
+        'api-key': process.env.BREVO_API_KEY_PROD,
         'content-type': 'application/json'
       },
       body: JSON.stringify(emailData)
