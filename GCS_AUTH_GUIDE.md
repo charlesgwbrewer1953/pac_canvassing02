@@ -1,22 +1,22 @@
-# GCS Authentication & Security Configuration
-
-## Current Implementation
-
-The app now fetches address data from Google Cloud Storage using a public URL with fallback to local data.
-
-### GCS URL Configuration
-- **Current URL**: `https://storage.cloud.google.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062413.csv?authuser=2`
-- **Bucket**: `pac20_oa_canvass`
-- **File**: `Runcorn and Helsby_E00062413.csv`
-
-## Authentication File Security
-
-### ❌ NEVER Store Auth Files In:
-- `public/` folder (publicly accessible)
-- `src/` folder (bundled with client code)
-- Root directory (might be exposed in builds)
-
-### ✅ Secure Authentication Options:
+{ GCS Authentication & Security Configuration
+  "name": "pac-canvassing-backend",
+  "version": "1.0.0",tion
+  "description": "Backend for PAC Canvassing App",kend for PAC Canvassing App",
+  "main": "index.js",ex.js",tches address data from Google Cloud Storage using a public URL with fallback to local data.
+  "scripts": {
+    "dev": "vercel dev","dev": "vercel dev",GCS URL Configuration
+    "deploy": "vercel --prod"rcel --prod": `https://storage.cloud.google.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062413.csv?authuser=2`
+  },nvass`
+  "dependencies": {n and Helsby_E00062413.csv`
+    "cors": "^2.8.5",,
+    "dotenv": "^16.3.1",3.1",ile Security
+    "express": "^4.18.2",.2",
+    "nodemailer": "^6.9.7"7"iles In:
+  },
+  "devDependencies": {ient code)
+    "vercel": "^32.5.0" be exposed in builds)
+  }
+}## ✅ Secure Authentication Options:
 
 #### Option 1: Environment Variables (Current Recommended)
 ```bash

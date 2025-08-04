@@ -1,0 +1,8 @@
+{
+  "name": "netlify-functions",
+  "version": "1.0.0",
+  "description": "Netlify functions for canvassing app",
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  }
+}

@@ -100,7 +100,7 @@ function App() {
         name: 'support',
         label: 'Support level',
         type: 'select',
-        options: ['pledge', 'strong', 'lean to', 'none']
+        options: ['member', 'strong', 'lean to', 'none']
       },
       {
         name: 'likelihood',
@@ -166,10 +166,9 @@ function App() {
     console.log('📤 Sending report to demographikon...');
     
     try {
-      const now = new Date();
       const reportData = {
-        date: now.toISOString().split('T')[0], // "2025-08-01" format
-        time: now.toTimeString().split(' ')[0], // "18:30:00" format
+        date: new Date().toLocaleDateString(),
+        time: new Date().toLocaleTimeString(),
         dataJSON: JSON.stringify(json, null, 2),
         canvasser: canvasserName
       };
