@@ -1,83 +1,65 @@
-const EMAIL_BACKENDS = {
-  ZAPIER: 'zapier',
-  NODEJS: 'nodejs'
-};
+// emailService.js
+export default async function sendEmailReport(reportData) {
+  const backendUrl =
+    window.location.hostname === 'localhost'
+      ? 'https://email-server-backend-production.up.railway.app/api/gmail/send'
+      : 'https://email-server-backend-production.up.railway.app/api/gmail/send';
 
-// Choose your backend here - change this one line to switch
-   const CURRENT_BACKEND = EMAIL_BACKENDS.NODEJS;
-// const CURRENT_BACKEND = EMAIL_BACKENDS.ZAPIER;
+  // Accept optional fields from caller:
+  // - subjectOverride (optional)
+  // - bodyText (optional)
+  // - attachments: [{ filename, contentBase64, contentType, encoding }]
+  const {
+    canvasser,
+    date,
+    time,
+    dataJSON,
+    subjectOverride,
+    bodyText,
+    attachments, // <— optional array
+  } = reportData;
 
-const sendReport = async (reportData) => {
-  switch (CURRENT_BACKEND) {
-    case EMAIL_BACKENDS.ZAPIER:
-      return await sendViaZapier(reportData);
-    
-    case EMAIL_BACKENDS.NODEJS:
-      return await sendViaNodeJS(reportData);
-    
-    default:
-      throw new Error('No email backend configured');
-  }
-};
+  const subject =
+    subjectOverride || `Canvassing Report - ${date} ${time || ''}`.trim();
 
-const sendViaZapier = async (reportData) => {
-  const webhookUrl = 'https://hooks.zapier.com/hooks/catch/24028989/u4t20am/';
-  
-  // Get current date/time if not provided
-  const now = new Date();
-  const currentDate = reportData.date || now.toISOString().split('T')[0];
-  const currentTime = reportData.time || now.toTimeString().split(' ')[0];
-  
-  const zapierData = {
-    Oa21cd: 'E00062413',
-    Date: currentDate,
-    Time: currentTime,
-    'Data JSON': reportData.dataJSON || 'No data provided',
-    Canvasser: reportData.canvasser || 'Unknown User'
+  const textBody =
+    bodyText ||
+    `Canvasser: ${canvasser}\n\nResponses:\n${dataJSON || ''}`;
+
+  const htmlBody =
+    `<h2>Canvasser: ${canvasser}</h2>` +
+    (dataJSON ? `<pre>${dataJSON}</pre>` : `<p>${textBody}</p>`);
+
+  const emailPayload = {
+    to: 'charles.brewer.junk@gmail.com',
+    subject,
+    text: textBody,
+    html: htmlBody,
+    // NEW: forward attachments if provided
+    // Each item: { filename, contentBase64, contentType, encoding: 'base64' }
+    ...(attachments?.length ? { attachments } : {}),
   };
 
-  const response = await fetch(webhookUrl, {
+  const res = await fetch(backendUrl, {
     method: 'POST',
-    body: JSON.stringify(zapierData)
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(emailPayload),
   });
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  const bodyTextRes = await res.text();
+
+  if (!res.ok) {
+    try {
+      const err = JSON.parse(bodyTextRes);
+      throw new Error(err.details || err.error || 'Unknown error sending email');
+    } catch {
+      throw new Error(bodyTextRes);
+    }
   }
 
-  return { success: true, provider: 'Zapier' };
-};
-
-const sendViaNodeJS = async (reportData) => {
-  const backendUrl = 'https://canvass-gcs.netlify.app/.netlify/functions/send-report';
-  
-  // Get current date/time if not provided
-  const now = new Date();
-  const currentDate = reportData.date || now.toISOString().split('T')[0];
-  const currentTime = reportData.time || now.toTimeString().split(' ')[0];
-  
-  const response = await fetch(backendUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      Oa21cd: 'E00062413',
-      Date: currentDate,
-      Time: currentTime,
-      DataJSON: reportData.dataJSON || 'No data provided',
-      Canvasser: reportData.canvasser || 'Unknown User'
-    })
-  });
-
-  const result = await response.json();
-
-  if (!result.success) {
-    throw new Error(result.error || 'Backend error');
+  try {
+    return JSON.parse(bodyTextRes);
+  } catch {
+    throw new Error('Invalid JSON in success response');
   }
-
-  return { success: true, provider: 'Node.js Backend', messageId: result.messageId };
-};
-
-
-export default sendReport;
+}
