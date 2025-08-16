@@ -144,6 +144,18 @@ function App() {
     }
   };
 
+  // Extract OA code (e.g. "E00062413") from URL
+const extractOAFromUrl = (url) => {
+  if (!url) return "UnknownOA";
+  try {
+    const tail = url.substring(url.lastIndexOf("/") + 1); // e.g. "Runcorn%20and%20Helsby_E00062413.csv"
+    const parts = tail.replace(".csv", "").split("_");
+    return parts.length > 1 ? parts[1] : "UnknownOA";
+  } catch {
+    return "UnknownOA";
+  }
+};
+
   const sendResults = async () => {
     // Merge responses per address
     const mergedByAddress = responses.reduce((acc, curr) => {
@@ -199,24 +211,22 @@ function App() {
       .map((r) => (r?.timestamp || '').split('T')[0])
       .filter(Boolean);
 
-    const todayStr = new Date().toISOString().split('T')[0];
-    const startDate = tsDates.length ? [...tsDates].sort()[0] : todayStr;
-    const endDate = tsDates.length ? [...tsDates].sort().slice(-1)[0] : todayStr;
-
-    const parsedConstituency = extractConstituencyFromUrl(PRIMARY_URL);
-    const constituencyName = constituency || parsedConstituency;
-
-// OA value (eg: "E00062413")
-const oaLabel = sanitizeFilename(getOAFromDataset());
-
-// Canvasser (eg: "JohnDoe")
-const canvasserSafe = sanitizeFilename(canvasserName || 'unknown');
-
-// Today’s date (eg: "2025-08-16")
+// Dates
 const todayStr = new Date().toISOString().split("T")[0];
+const startDate = tsDates.length ? [...tsDates].sort()[0] : todayStr;
+const endDate   = tsDates.length ? [...tsDates].sort().slice(-1)[0] : todayStr;
 
-// ✅ New filename pattern: OA<oaLabel>_<canvasser>_<date>.csv
-const fileName = `OA${oaLabel}_${canvasserSafe}_${todayStr}.csv`;
+// Constituency
+const parsedConstituency = extractConstituencyFromUrl(PRIMARY_URL);
+const constituencyName   = constituency || parsedConstituency;
+
+// Safe values
+const constituencySafe = sanitizeFilename(constituencyName || "Constituency");
+const oaLabel          = sanitizeFilename(extractOAFromUrl(PRIMARY_URL));  // ✅ from URL, not dataset
+const canvasserSafe    = sanitizeFilename(canvasserName || "unknown");
+
+// ✅ Final filename
+const fileName = `${constituencySafe}_OA${oaLabel}_${canvasserSafe}_${todayStr}.csv`;
 
     const bodyText =
       `Constituency: ${constituencyName}\n` +
