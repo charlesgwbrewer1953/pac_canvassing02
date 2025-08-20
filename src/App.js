@@ -6,7 +6,7 @@ import { fetchAddressDataWithFallback } from './gcsUtils';
 import sendReport from './emailService';
 import StepForm from './components/StepForm';
 
-const version = { major: 0, minor: 1, patch: 0 };
+
 
 // Styles
 const inputStyle = { width: '100%', maxWidth: '400px', fontSize: '18px', padding: '10px', marginBottom: '10px', boxSizing: 'border-box' };
@@ -85,11 +85,9 @@ function App() {
     ];
     return rows.join('\n');
   };
-  const getOAFromDataset = () => {
-    const first = addressData?.[0] || {};
-    return first.OA || first.oa || first.output_area || first.OutputArea || 'OA';
-  };
-  const sanitizeFilename = (s) => (s || '').toString().replace(/[^\w\-]+/g, '-');
+
+
+  const sanitizeFilename = (s) => (s || '').toString().replace(/[^\w-]+/g, '-');
 
   function getFormSteps() {
     const selected = addressData.find((a) => a.address === formData.address);
