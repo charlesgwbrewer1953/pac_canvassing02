@@ -260,27 +260,53 @@ const fileName = `${constituencySafe}_OA${oaLabel}_${canvasserSafe}_${todayStr}.
   };
 
   // ---- Single, correct useEffect ----
-  useEffect(() => {
-    // Restore saved responses
-    const savedData = localStorage.getItem('canvassData');
-    if (savedData) {
-      try {
-        const parsed = JSON.parse(savedData);
-        setResponses(parsed);
-        setVisited(parsed.map((r) => r.address));
-      } catch (e) {
-        console.error('Error loading saved data:', e);
-      }
-    }
-
-    // Set constituency from the primary URL (safe)
+useEffect(() => {
+  // Restore saved responses
+  const savedData = localStorage.getItem('canvassData');
+  if (savedData) {
     try {
-      setConstituency(extractConstituencyFromUrl(PRIMARY_URL));
+      const parsed = JSON.parse(savedData);
+      setResponses(parsed);
+      setVisited(parsed.map((r) => r.address));
     } catch (e) {
-      // ignore
+      console.error('Error loading saved data:', e);
     }
+  }
 
-    // Fetch address data (with fallback)
+  // Set constituency from the primary URL (safe)
+  try {
+    setConstituency(extractConstituencyFromUrl(PRIMARY_URL));
+  } catch (e) {
+    // ignore
+  }
+
+  // --- NEW: check for ?object= query param ---
+  const params = new URLSearchParams(window.location.search);
+  const object = params.get("object");
+
+  if (object) {
+    console.log("Loading CSV from Netlify proxy:", object);
+    setDataLoading(true);
+    fetch(`/.netlify/functions/gcs-proxy?object=${encodeURIComponent(object)}`)
+      .then((resp) => {
+        if (!resp.ok) throw new Error(`Proxy failed: ${resp.statusText}`);
+        return resp.text();
+      })
+      .then((csvText) => {
+        // Parse CSV → your ingestion logic
+        const rows = csvText.split(/\r?\n/).map((line) => line.split(","));
+        // quick hack: feed into same handler as fetchAddressDataWithFallback
+        setAddressData(rows.map((r, i) => ({ address: r[0], residents: r.slice(1) })));
+      })
+      .catch((err) => {
+        console.error("Proxy fetch error:", err);
+        setDataError(err.message);
+      })
+      .finally(() => {
+        setDataLoading(false);
+      });
+  } else {
+    // Default behaviour → load PRIMARY_URL
     setDataLoading(true);
     fetchAddressDataWithFallback(PRIMARY_URL, FALLBACK_URL)
       .then((data) => {
@@ -292,7 +318,8 @@ const fileName = `${constituencySafe}_OA${oaLabel}_${canvasserSafe}_${todayStr}.
       .finally(() => {
         setDataLoading(false);
       });
-  }, []);
+  }
+}, []);
 
   if (!loggedIn) {
     return (

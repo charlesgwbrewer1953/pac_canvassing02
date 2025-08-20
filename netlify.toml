@@ -1,3 +1,10 @@
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  external_node_modules = ["@google-cloud/storage"]
+
+
 [build]
   functions = "netlify/functions"
   publish = "build"
@@ -9,3 +16,6 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+
+  
