@@ -2,8 +2,8 @@
 export default async function sendEmailReport(reportData) {
   const backendUrl =
     window.location.hostname === 'localhost'
-      ? 'https://email-server-backend-production.up.railway.app/api/gmail/send'
-      : 'https://email-server-backend-production.up.railway.app/api/gmail/send';
+      ? 'https://email-server-backend-production.up.railway.app/api/email/send'
+      : 'https://email-server-backend-production.up.railway.app/api/email/send';
 
   // Accept optional fields from caller:
   // - subjectOverride (optional)
