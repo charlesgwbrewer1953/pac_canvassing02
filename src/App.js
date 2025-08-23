@@ -18,7 +18,6 @@ const titleStyle = {
   marginBottom: '20px',
   color: '#222',
   textAlign: 'center',
-  position: 'sticky',
   top: 0,
   backgroundColor: '#fff',
   padding: '10px',
@@ -36,7 +35,7 @@ const FALLBACK_URL = '/sample_address_data.csv';
 const extractConstituencyFromUrl = (url) => {
   if (!url) return 'OA';
   try {
-    const tail = url.substring(url.lastIndexOf('/') + 1); // "Runcorn%20and%20Helsby_E00062413.csv"
+    const tail = url.substring(url.lastIndexOf('/') + 1); // "Runcorn%20and%20Helsby_E00062411.csv"
     const uptoUnderscore = tail.split('_')[0];            // "Runcorn%20and%20Helsby"
     return decodeURIComponent(uptoUnderscore || 'OA');
   } catch {
