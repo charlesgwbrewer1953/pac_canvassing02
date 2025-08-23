@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { shuffle } from './utils';
-import { fetchAddressDataWithFallback } from './gcsUtils';
+import { fetchAddressDataWithFallback, parseAddressCsv } from './gcsUtils';
 import sendReport from './emailService';
 import StepForm from './components/StepForm';
 
@@ -44,70 +44,9 @@ const extractConstituencyFromUrl = (url) => {
 };
 
 // --- Robust CSV parsing for the ?object= flow ---
-function parseCsv(text) {
-  const rows = [];
-  let row = [], cur = "", inQuotes = false;
-  for (let i = 0; i < text.length; i++) {
-    const c = text[i];
-    if (inQuotes) {
-      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
-      else if (c === '"') { inQuotes = false; }
-      else { cur += c; }
-    } else {
-      if (c === '"') { inQuotes = true; }
-      else if (c === ',') { row.push(cur); cur = ""; }
-      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ""; }
-      else if (c === '\r') { /* ignore CR */ }
-      else { cur += c; }
-    }
-  }
-  if (cur.length || row.length) { row.push(cur); rows.push(row); }
-  if (rows.length && rows[0].length) rows[0][0] = rows[0][0].replace(/^\uFEFF/, '');
-  return rows;
-}
 
-// Map parsed rows to your expected shape; header row is optional (case-insensitive)
-function rowsToAddressData(rows) {
-  const nonEmpty = rows.filter(r => r && r.length && r.some(x => (x ?? '').trim() !== ''));
-  if (!nonEmpty.length) return [];
 
-  const firstLower = nonEmpty[0].map(x => (x ?? '').trim().toLowerCase());
-  const hasHeader = firstLower.includes('address');
 
-  if (hasHeader) {
-    const header = nonEmpty[0].map(h => (h ?? '').trim());
-    const findIdx = (name) =>
-      header.findIndex(h => (h ?? '').trim().toLowerCase() === name.toLowerCase());
-    const aIdx  = findIdx('address');
-    const oaIdx = (() => {
-      for (const n of ['oa','output_area','outputarea']) {
-        const i = findIdx(n); if (i >= 0) return i;
-      }
-      return -1;
-    })();
-    const pcIdx = findIdx('postcode');
-    const wdIdx = findIdx('ward');
-    const rStart = aIdx >= 0 ? aIdx + 1 : 1;
-
-    return nonEmpty.slice(1).map(r => {
-      const address = (r[aIdx] ?? '').trim();
-      if (!address) return null;
-      const residents = r.slice(rStart).map(x => (x ?? '').trim()).filter(Boolean);
-      const out = { address, residents };
-      if (oaIdx >= 0 && (r[oaIdx] ?? '').trim()) out.OA = (r[oaIdx] ?? '').trim();
-      if (pcIdx >= 0 && (r[pcIdx] ?? '').trim()) out.postcode = (r[pcIdx] ?? '').trim();
-      if (wdIdx >= 0 && (r[wdIdx] ?? '').trim()) out.ward = (r[wdIdx] ?? '').trim();
-      return out;
-    }).filter(Boolean);
-  } else {
-    return nonEmpty.map(r => {
-      const address = (r[0] ?? '').trim();
-      if (!address) return null;
-      const residents = r.slice(1).map(x => (x ?? '').trim()).filter(Boolean);
-      return { address, residents };
-    }).filter(Boolean);
-  }
-}
 
 function App() {
   const [userId, setUserId] = useState('');
@@ -361,8 +300,8 @@ if (object) {
       return resp.text();
     })
     .then((csvText) => {
-      const rows = parseCsv(csvText);                // ✅ robust parsing
-      const data = rowsToAddressData(rows);          // ✅ header-aware mapping
+      // ✅ Use the same parser as the hardcoded path
+      const data = parseAddressCsv(csvText);
       setAddressData(data);
     })
     .catch((err) => {

@@ -4,7 +4,7 @@
  * Parse CSV text into address data format
  * Expected CSV format: First Name, Last Name, Address, other_columns...
  */
-function parseCSVToAddressData(csvText) {
+export function parseAddressCsv(csvText) {
   console.log('🔍 Parsing CSV data, length:', csvText.length);
   
   const lines = csvText.trim().split('\n');
@@ -33,7 +33,7 @@ function parseCSVToAddressData(csvText) {
   const addressMap = new Map();
   
   // Process each data row (including the header row as data!)
-  for (let i = 0; i < lines.length; i++) {
+  for (let i = 1; i < lines.length; i++) {  // ✅ skip header
     const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
     
     if (values.length < 3) {
@@ -95,7 +95,7 @@ export async function fetchAddressDataWithFallback(primaryUrl, fallbackUrl) {
     const csvText = await response.text();
     console.log('✅ Successfully fetched from primary URL');
     
-    const data = parseCSVToAddressData(csvText);
+    const data = parseAddressCsv(csvText);
     
     if (data.length === 0) {
       throw new Error('No valid address data found in primary source');
@@ -116,7 +116,7 @@ export async function fetchAddressDataWithFallback(primaryUrl, fallbackUrl) {
       const csvText = await response.text();
       console.log('✅ Successfully fetched from fallback URL');
       
-      const data = parseCSVToAddressData(csvText);
+      const data = parseAddressCsv(csvText);
       
       if (data.length === 0) {
         throw new Error('No valid address data found in fallback source');
