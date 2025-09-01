@@ -261,6 +261,28 @@ const fileName = `${constituencySafe}_OA${oaLabel}_${canvasserSafe}_${todayStr}.
     }
   };
 
+  // Go to top / Address selection
+const goToAddressSelection = () => {
+  setCurrentAddress('');
+  setFormData({});
+  setStep(0);
+};
+
+
+// Previous function
+const goToPreviousStep = () => {
+  if (formData.response && step > 0) {
+    setStep(step - 1);
+  } else if (formData.response && step === 0) {
+    // back to Response/No Response choice
+    setFormData({ address: currentAddress });
+  } else if (!formData.response) {
+    // already on Response screen → go back to address selection
+    goToAddressSelection();
+  }
+};
+
+
   // ---- Single, correct useEffect ----
 useEffect(() => {
   // Restore saved responses
@@ -444,6 +466,15 @@ if (object) {
           onNext={() => saveResponse(formData)}
         />
       )}
+
+      <div style={{ marginTop: 20, display: 'flex', gap: '10px' }}>
+  <button onClick={goToPreviousStep} style={buttonStyle}>
+    ⬅ Previous
+  </button>
+  <button onClick={goToAddressSelection} style={{ ...buttonStyle, backgroundColor: '#6c757d' }}>
+    ↩ Back to Address Selection
+  </button>
+</div>
 
       <div style={{ marginTop: 30 }}>
         <button onClick={() => setAdminMode(!adminMode)} style={buttonStyle}>Admin</button>
