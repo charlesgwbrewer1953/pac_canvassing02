@@ -107,7 +107,7 @@ function App() {
           { value: 'CON', label: 'Conservative', color: 'blue' },
           { value: 'LAB', label: 'Labour', color: 'red' },
           { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
-          { value: 'REF', label: 'Reform', color: 'teal' },
+          { value: 'REF', label: 'Reform', color: '#4FAED6' },
           { value: 'GRN', label: 'Green', color: 'green' },
           { value: 'OTH', label: 'Other', color: 'grey' },
           { value: 'NONE', label: 'None', color: 'black' }
