@@ -63,6 +63,8 @@ function App() {
   const [dataError, setDataError] = useState(null);
   const [constituency, setConstituency] = useState('OA');
   const [sourceRef, setSourceRef] = useState(PRIMARY_URL);
+  const ISSUE_OPTIONS = ['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'];
+  const [issuesOrder, setIssuesOrder] = useState(ISSUE_OPTIONS);
 
   // Send button UI state
   const [sendBtnLabel, setSendBtnLabel] = useState('Send Report to Demographikon');
@@ -94,31 +96,36 @@ function App() {
 
   const sanitizeFilename = (s) => (s || '').toString().replace(/[^\w-]+/g, '-');
 
-  function getFormSteps() {
-    const selected = addressData.find((a) => a.address === formData.address);
-    const residents = selected?.residents || [];
-    return [
-      { name: 'residents', label: 'Who was spoken to?', type: 'checkbox', options: residents },
-      {
-        name: 'party',
-        label: 'Party Preference',
-        type: 'radio',
-        options: [
-          { value: 'CON', label: 'Conservative', color: 'blue' },
-          { value: 'LAB', label: 'Labour', color: 'red' },
-          { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
-          { value: 'REF', label: 'Reform', color: '#4FAED6' },
-          { value: 'GRN', label: 'Green', color: 'green' },
-          { value: 'OTH', label: 'Other', color: 'grey' },
-          { value: 'NONE', label: 'None', color: 'black' }
-        ]
-      },
-      { name: 'support', label: 'Support level', type: 'select', options: ['certain', 'strong', 'lean to', 'none'] },
-      { name: 'likelihood', label: 'Likelihood of Voting', type: 'select', options: ['definitely', 'probably', 'unlikely', 'no'] },
-      { name: 'issue', label: 'Most Important Issue', type: 'radio', options: shuffle(['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero']) },
-      { name: 'notes', label: 'Notes', type: 'textarea' }
-    ];
-  }
+  const startNewPass = () => {
+  setIssuesOrder(shuffle([...ISSUE_OPTIONS])); // reshuffle for this pass
+  setStep(0);
+};
+
+function getFormSteps() {
+  const selected = addressData.find((a) => a.address === formData.address);
+  const residents = selected?.residents || [];
+  return [
+    { name: 'residents', label: 'Who was spoken to?', type: 'checkbox', options: residents },
+    {
+      name: 'party',
+      label: 'Party Preference',
+      type: 'radio',
+      options: [
+        { value: 'CON', label: 'Conservative', color: 'blue' },
+        { value: 'LAB', label: 'Labour', color: 'red' },
+        { value: 'LIBDEM', label: 'Liberal Democrat', color: 'darkorange' },
+        { value: 'REF', label: 'Reform', color: '#4FAED6' },
+        { value: 'GRN', label: 'Green', color: 'green' },
+        { value: 'OTH', label: 'Other', color: 'grey' },
+        { value: 'NONE', label: 'None', color: 'black' }
+      ]
+    },
+    { name: 'support', label: 'Support level', type: 'select', options: ['certain', 'strong', 'lean to', 'none'] },
+    { name: 'likelihood', label: 'Likelihood of Voting', type: 'select', options: ['definitely', 'probably', 'unlikely', 'no'] },
+    { name: 'issue', label: 'Most Important Issue', type: 'radio', options: issuesOrder }, // ← use per-pass shuffle
+    { name: 'notes', label: 'Notes', type: 'textarea' }
+  ];
+}
 
   const saveResponse = (data, auto = false) => {
     const newEntry = { ...data, timestamp: new Date().toISOString(), canvasser: canvasserName };
@@ -411,24 +418,27 @@ if (object) {
           <div style={{ marginBottom: '20px' }}>
             <h3>Response</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <label style={{
-                ...radioLabelStyle,
-                backgroundColor: formData.response === 'Response' ? '#007bff' : '#e8e8e8',
-                color: formData.response === 'Response' ? '#fff' : '#000',
-                margin: '0',
-                display: 'flex',
-                width: '100%'
-              }}>
-                <input
-                  type="radio"
-                  name="response"
-                  value="Response"
-                  checked={formData.response === 'Response'}
-                  onChange={() => setFormData({ ...formData, response: 'Response' })}
-                  style={radioInputStyle}
-                />
-                Response
-              </label>
+<label style={{
+  ...radioLabelStyle,
+  backgroundColor: formData.response === 'Response' ? '#007bff' : '#e8e8e8',
+  color: formData.response === 'Response' ? '#fff' : '#000',
+  margin: '0',
+  display: 'flex',
+  width: '100%'
+}}>
+  <input
+    type="radio"
+    name="response"
+    value="Response"
+    checked={formData.response === 'Response'}
+    onChange={() => {
+      startNewPass();   // ← reshuffle before this flow starts
+      setFormData({ ...formData, response: 'Response' });
+    }}
+    style={radioInputStyle}
+  />
+  Response
+</label>
 
               <label style={{
                 ...radioLabelStyle,
