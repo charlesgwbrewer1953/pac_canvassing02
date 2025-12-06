@@ -19,7 +19,7 @@ const titleStyle = {
   color: '#222',
   textAlign: 'center',
   top: 0,
-  backgroundColor: '#fff',
+  backgroundColor: '#f0f0f0',
   padding: '10px',
   zIndex: 1000,
   borderBottom: '1px solid #ccc'
@@ -360,8 +360,11 @@ if (object) {
 
   if (!loggedIn) {
     return (
-      <div style={{ padding: 20 }}>
-        <h1 style={titleStyle}>demographiKon</h1>
+      <div style={{ padding: 20, backgroundColor: '#f0f0f0', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h1 style={titleStyle}>demographiKon</h1>
+          <span style={{ fontStyle: 'italic', fontSize: '10pt', color: '#b3b3b3' }}>Version 1.0.5</span>
+        </div>
         <label>
           Enter User ID:<br />
           <input
@@ -379,10 +382,6 @@ if (object) {
 
   return (
     <div style={{ padding: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={titleStyle}>demographiKon</h1>
-        <span style={{ fontStyle: 'italic', fontSize: '10pt', color: '#b3b3b3' }}>Version 1.0.4</span>
-      </div>
 
 {/* Only show address selector until one is chosen */}
 {!currentAddress && (
