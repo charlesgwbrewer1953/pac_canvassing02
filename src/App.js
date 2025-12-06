@@ -24,8 +24,8 @@ const titleStyle = {
   zIndex: 1000,
   borderBottom: '1px solid #ccc'
 };
-const radioLabelStyle = { display: 'inline-flex', alignItems: 'center', fontSize: '20px', padding: '10px 16px', backgroundColor: '#e8e8e8', borderRadius: '8px', border: '2px solid #ccc', cursor: 'pointer' };
-const radioInputStyle = { width: '24px', height: '24px', marginRight: '12px', cursor: 'pointer' };
+const radioLabelStyle = { display: 'inline-flex', alignItems: 'center', fontSize: '20px', padding: '12px 18px', backgroundColor: '#e8e8e8', borderRadius: '8px', border: '2px solid #ccc', cursor: 'pointer' };
+const radioInputStyle = { width: '36px', height: '36px', marginRight: '14px', cursor: 'pointer' };
 
 // ---- Data source URLs (single source of truth) ----
 const PRIMARY_URL = 'https://storage.googleapis.com/pac20_oa_canvass/Runcorn%20and%20Helsby_E00062411.csv';
@@ -120,8 +120,8 @@ function getFormSteps() {
         { value: 'NONE', label: 'None', color: 'black' }
       ]
     },
-    { name: 'support', label: 'Support level', type: 'select', options: ['certain', 'strong', 'lean to', 'none'] },
-    { name: 'likelihood', label: 'Likelihood of Voting', type: 'select', options: ['definitely', 'probably', 'unlikely', 'no'] },
+    { name: 'support', label: 'Support level', type: 'radio', options: ['certain', 'strong', 'lean to', 'none'] },
+    { name: 'likelihood', label: 'Likelihood of Voting', type: 'radio', options: ['definitely', 'probably', 'unlikely', 'no'] },
     { name: 'issue', label: 'Most Important Issue', type: 'radio', options: issuesOrder }, // ← use per-pass shuffle
     { name: 'notes', label: 'Notes', type: 'textarea' }
   ];
@@ -379,7 +379,10 @@ if (object) {
 
   return (
     <div style={{ padding: 20 }}>
-      <h1 style={titleStyle}>demographiKon</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <h1 style={titleStyle}>demographiKon</h1>
+        <span style={{ fontStyle: 'italic', fontSize: '10pt', color: '#b3b3b3' }}>Version 1.0.4</span>
+      </div>
 
 {/* Only show address selector until one is chosen */}
 {!currentAddress && (

@@ -8,13 +8,13 @@ const radioLabelStyle = {
   display: 'inline-flex',
   alignItems: 'center',
   fontSize: '20px',
-  padding: '10px 16px',
+  padding: '12px 18px',
   backgroundColor: '#e8e8e8',
   borderRadius: '8px',
   border: '2px solid #ccc', // ← fixed quotes
   cursor: 'pointer'
 };
-const radioInputStyle = { width: '24px', height: '24px', marginRight: '12px', cursor: 'pointer' };
+const radioInputStyle = { width: '36px', height: '36px', marginRight: '14px', cursor: 'pointer' };
 
 export default function StepForm({ step, formData, setFormData, stepConfig, onNext }) {
   if (!stepConfig) return null;
@@ -42,7 +42,7 @@ export default function StepForm({ step, formData, setFormData, stepConfig, onNe
                       : current.filter(item => item !== option);
                     handleChange(updated);
                   }}
-                  style={{ marginRight: '10px' }}
+                  style={{ width: '28px', height: '28px', marginRight: '12px', cursor: 'pointer' }}
                 />
                 {option}
               </label>
