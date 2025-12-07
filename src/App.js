@@ -63,6 +63,7 @@ function App() {
   const [dataError, setDataError] = useState(null);
   const [constituency, setConstituency] = useState('OA');
   const [sourceRef, setSourceRef] = useState(PRIMARY_URL);
+  const ADMIN_EMAIL = 'charles.brewer.junk@gmail.com';
   const ISSUE_OPTIONS = ['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'];
   const [issuesOrder, setIssuesOrder] = useState(ISSUE_OPTIONS);
 
@@ -257,7 +258,7 @@ const fileName = `${constituencySafe}_OA${oaLabel}_${canvasserSafe}_${todayStr}.
       });
 
       setSendBtnLabel('Report Sent ✅');
-      alert(`✅ Report sent successfully! File: ${fileName}`);
+      alert(`✅ Report sent successfully to ${ADMIN_EMAIL}! File: ${fileName}`);
     } catch (error) {
       console.error(error);
       setSendBtnLabel('Failed ❌');
