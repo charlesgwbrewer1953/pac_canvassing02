@@ -118,7 +118,7 @@ function getFormSteps() {
         { value: 'REF', label: 'Reform', color: '#4FAED6' },
         { value: 'GRN', label: 'Green', color: 'green' },
         { value: 'OTH', label: 'Other', color: 'grey' },
-        { value: 'NONE', label: 'None', color: 'black' }
+        { value: 'NONE', label: 'None', color: 'black'  }
       ]
     },
     { name: 'support', label: 'Support level', type: 'radio', options: ['certain', 'strong', 'lean to', 'none'] },
