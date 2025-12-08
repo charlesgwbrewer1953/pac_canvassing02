@@ -1,10 +1,28 @@
 // netlify/functions/gcs-proxy.js
 const { Storage } = require("@google-cloud/storage");
 
-const storage = new Storage({
-  credentials: JSON.parse(process.env.GCP_SERVICE_ACCOUNT_JSON),
-  projectId: process.env.GCP_PROJECT_ID || "political_maps",
-});
+let storage;
+function getStorage() {
+  if (storage) return storage;
+
+  const rawCreds = process.env.GCP_SERVICE_ACCOUNT_JSON;
+  if (!rawCreds) {
+    throw new Error("Missing GCP_SERVICE_ACCOUNT_JSON");
+  }
+
+  let credentials;
+  try {
+    credentials = JSON.parse(rawCreds);
+  } catch (e) {
+    throw new Error("Invalid JSON in GCP_SERVICE_ACCOUNT_JSON");
+  }
+
+  storage = new Storage({
+    credentials,
+    projectId: process.env.GCP_PROJECT_ID || credentials.project_id || "political_maps",
+  });
+  return storage;
+}
 
 const BUCKET = process.env.GCS_BUCKET || "pac20_oa_canvass";
 
@@ -20,6 +38,8 @@ function isSafeObject(name) {
 
 exports.handler = async (event) => {
   try {
+    const storage = getStorage();
+
     const qp = event.queryStringParameters || {};
     const object = qp.object;
 
@@ -47,6 +67,10 @@ exports.handler = async (event) => {
       body: buf.toString("utf8"),
     };
   } catch (e) {
-    return { statusCode: 500, body: `Server error: ${e.message}` };
+    return {
+      statusCode: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
+      body: `Server error: ${e.message}`,
+    };
   }
 };

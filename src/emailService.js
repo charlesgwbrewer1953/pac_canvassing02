@@ -1,9 +1,7 @@
 // emailService.js
 export default async function sendEmailReport(reportData) {
-  const backendUrl =
-    window.location.hostname === 'localhost'
-      ? 'https://email-server-backend-production.up.railway.app/api/email/send'
-      : 'https://email-server-backend-production.up.railway.app/api/email/send';
+  // Always go through the Netlify function (works for local `netlify dev` and production deploys).
+  const backendUrl = '/.netlify/functions/email-proxy';
 
   // Accept optional fields from caller:
   // - subjectOverride (optional)
@@ -31,7 +29,7 @@ export default async function sendEmailReport(reportData) {
     (dataJSON ? `<pre>${dataJSON}</pre>` : `<p>${textBody}</p>`);
 
   const emailPayload = {
-    to: 'charles.brewer.junk@gmail.com',
+    to: 'demographikon.dev.01@gmail.com',
     subject,
     text: textBody,
     html: htmlBody,
@@ -40,20 +38,25 @@ export default async function sendEmailReport(reportData) {
     ...(attachments?.length ? { attachments } : {}),
   };
 
-  const res = await fetch(backendUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(emailPayload),
-  });
+  let res;
+  try {
+    res = await fetch(backendUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(emailPayload),
+    });
+  } catch (err) {
+    throw new Error(`Email send failed (network): ${err.message}. Ensure you are running via "netlify dev" so functions are available.`);
+  }
 
   const bodyTextRes = await res.text();
 
   if (!res.ok) {
     try {
       const err = JSON.parse(bodyTextRes);
-      throw new Error(err.details || err.error || 'Unknown error sending email');
+      throw new Error(err.details || err.error || 'Unknown error sending email (proxy)');
     } catch {
-      throw new Error(bodyTextRes);
+      throw new Error(`Email send failed: ${bodyTextRes || res.statusText}`);
     }
   }
 

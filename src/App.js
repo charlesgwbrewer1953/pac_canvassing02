@@ -63,7 +63,7 @@ function App() {
   const [dataError, setDataError] = useState(null);
   const [constituency, setConstituency] = useState('OA');
   const [sourceRef, setSourceRef] = useState(PRIMARY_URL);
-  const ADMIN_EMAIL = 'charles.brewer.junk@gmail.com';
+  const ADMIN_EMAIL = 'demographikon.dev.01@gmail.com';
   const ISSUE_OPTIONS = ['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'];
   const [issuesOrder, setIssuesOrder] = useState(ISSUE_OPTIONS);
 
@@ -364,7 +364,7 @@ if (object) {
       <div style={{ padding: 20, backgroundColor: '#f0f0f0', minHeight: '100vh' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1 style={titleStyle}>demographiKon</h1>
-          <span style={{ fontStyle: 'italic', fontSize: '10pt', color: '#b3b3b3' }}>Version 1.0.5</span>
+          <span style={{ fontStyle: 'italic', fontSize: '10pt', color: '#b3b3b3' }}>Version 1.0.9</span>
         </div>
         <label>
           Enter User ID:<br />

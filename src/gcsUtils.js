@@ -84,46 +84,49 @@ export function parseAddressCsv(csvText) {
  */
 export async function fetchAddressDataWithFallback(primaryUrl, fallbackUrl) {
   console.log('🔍 Fetching address data from:', primaryUrl);
-  
-  try {
-    // Try primary URL first
-    const response = await fetch(primaryUrl);
+
+  const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+  const proxyObject = (() => {
+    try {
+      const parsed = new URL(primaryUrl);
+      const parts = parsed.pathname.split('/');
+      return parts[parts.length - 1] || null;
+    } catch {
+      return null;
+    }
+  })();
+  const proxyUrl = isLocalhost && proxyObject
+    ? `/.netlify/functions/gcs-proxy?object=${encodeURIComponent(proxyObject)}`
+    : null;
+
+  const tryFetch = async (url, label) => {
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
     const csvText = await response.text();
-    console.log('✅ Successfully fetched from primary URL');
-    
+    console.log(`✅ Successfully fetched from ${label}`);
     const data = parseAddressCsv(csvText);
-    
     if (data.length === 0) {
-      throw new Error('No valid address data found in primary source');
+      throw new Error('No valid address data found');
     }
-    
     return data;
-    
+  };
+
+  try {
+    if (proxyUrl) {
+      try {
+        return await tryFetch(proxyUrl, 'local proxy');
+      } catch (err) {
+        console.warn('⚠️ Local proxy failed, falling back to primary:', err.message);
+      }
+    }
+    return await tryFetch(primaryUrl, 'primary URL');
   } catch (primaryError) {
     console.warn('⚠️ Primary source failed:', primaryError.message);
     console.log('🔄 Trying fallback URL:', fallbackUrl);
-    
     try {
-      const response = await fetch(fallbackUrl);
-      if (!response.ok) {
-        throw new Error(`Fallback HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const csvText = await response.text();
-      console.log('✅ Successfully fetched from fallback URL');
-      
-      const data = parseAddressCsv(csvText);
-      
-      if (data.length === 0) {
-        throw new Error('No valid address data found in fallback source');
-      }
-      
-      return data;
-      
+      return await tryFetch(fallbackUrl, 'fallback URL');
     } catch (fallbackError) {
       console.error('❌ Both primary and fallback failed');
       throw new Error(`Failed to fetch address data: ${primaryError.message}. Fallback also failed: ${fallbackError.message}`);
