@@ -194,11 +194,31 @@ function App() {
   useEffect(() => {
     async function bootstrap() {
       try {
-        const token = getQueryParam('token');
+const tokenFromUrl = getQueryParam('token');
 
-        if (!token) {
-          throw new Error('Missing canvass token in URL (token=...)');
-        }
+const allowDevBypass =
+  process.env.REACT_APP_ALLOW_DEV_BYPASS === 'true';
+
+if (!tokenFromUrl && !allowDevBypass) {
+  throw new Error('Missing canvass token in URL (token=...)');
+}
+
+if (!tokenFromUrl && allowDevBypass) {
+  console.warn('⚠️ DEV MODE: bypassing canvass token');
+
+  // Simulate the /canvass-session response directly
+  setSessionToken('__DEV_SESSION__');
+  setUser({
+    id: 'dev-user',
+    role: 'admin',            // or 'volunteer'
+    tenant_id: 'dev-tenant'
+  });
+  setOA('E00181357');          // ← your provided OA
+  setCanvasserName('Dev Tester');
+
+  setBootstrapping(false);
+  return;
+}
 
         const resp = await fetch(`${API_BASE}/canvass-session`, {
           method: 'POST',
