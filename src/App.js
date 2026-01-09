@@ -223,7 +223,7 @@ if (!tokenFromUrl && allowDevBypass) {
         const resp = await fetch(`${API_BASE}/canvass-session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
+          body: JSON.stringify({ token: tokenFromUrl })
         });
 
         if (!resp.ok) {
