@@ -67,6 +67,36 @@ const ADMIN_EMAIL = 'demographikon.dev.01@gmail.com';
 // Issues
 const ISSUE_OPTIONS = ['Immigration', 'Economy', 'NHS', 'Housing', 'Net Zero'];
 
+async function sendCanvassRecord({
+  sessionToken,
+  payload
+}) {
+  try {
+    const resp = await fetch(
+      `${API_BASE}/canvass-records`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${sessionToken}`
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error("Canvass DB write failed:", resp.status, text);
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.error("Canvass DB write error:", e);
+    return false;
+  }
+}
+
 // -------------------- Helpers --------------------
 const extractConstituencyFromUrl = (url) => {
   if (!url) return 'OA';
@@ -366,6 +396,59 @@ if (!tokenFromUrl && allowDevBypass) {
     setResponses(newResponses);
     setVisited(newVisited);
     localStorage.setItem('canvassData', JSON.stringify(newResponses));
+
+
+    const saveResponse = (data, auto = false) => {
+  const newEntry = {
+    ...data,
+    timestamp: new Date().toISOString(),
+    canvasser: canvasserName,
+    OA: oa
+  };
+
+  const filteredResponses = responses.filter(
+    (r) => r.address !== data.address
+  );
+  const newResponses = [...filteredResponses, newEntry];
+  const newVisited = [...new Set([...visited, data.address])];
+
+  setResponses(newResponses);
+  setVisited(newVisited);
+  localStorage.setItem("canvassData", JSON.stringify(newResponses));
+
+  // -------------------------------
+  // NEW: fire-and-forget DB write
+  // -------------------------------
+  if (sessionToken) {
+    sendCanvassRecord({
+      sessionToken,
+      payload: {
+        client_record_id: crypto.randomUUID(),
+        address: data.address,
+        response: data.response,
+        residents: data.residents || null,
+        party: data.party || null,
+        support: data.support || null,
+        likelihood: data.likelihood || null,
+        issue: data.issue || null,
+        notes: data.notes || null,
+        canvassed_at: new Date().toISOString()
+      }
+    });
+  } else {
+    console.warn("No session token; skipping DB write");
+  }
+  // -------------------------------
+
+  const steps = getFormSteps();
+  if (auto || step === steps.length - 1) {
+    setStep(0);
+    setFormData({});
+    setCurrentAddress("");
+  } else {
+    setStep(step + 1);
+  }
+};
 
     const steps = getFormSteps();
     if (auto || step === steps.length - 1) {
