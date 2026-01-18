@@ -1,143 +1,122 @@
 // src/App.js
-import React, { useState, useEffect, useMemo } from 'react';
-import './App.css';
-import { shuffle } from './utils';
-import { fetchAddressDataWithFallback, parseAddressCsv } from './gcsUtils';
-import sendReport from './emailService';
-import StepForm from './components/StepForm';
-
-/* -------------------- Styles -------------------- */
-const inputStyle = {
-  width: '100%',
-  maxWidth: '400px',
-  fontSize: '18px',
-  padding: '10px',
-  marginBottom: '10px',
-  boxSizing: 'border-box'
-};
-const buttonStyle = {
-  padding: '10px 20px',
-  fontSize: '16px',
-  backgroundColor: '#007bff',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '6px',
-  marginTop: '10px'
-};
-const titleStyle = {
-  fontFamily: "'Roboto', sans-serif",
-  fontWeight: 300,
-  fontSize: '36px',
-  marginBottom: '20px',
-  color: '#222',
-  textAlign: 'center',
-  backgroundColor: '#f0f0f0',
-  padding: '10px',
-  borderBottom: '1px solid #ccc'
-};
-const radioLabelStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  fontSize: '20px',
-  padding: '12px 18px',
-  backgroundColor: '#e8e8e8',
-  borderRadius: '8px',
-  border: '2px solid #ccc',
-  cursor: 'pointer'
-};
-const radioInputStyle = { width: '36px', height: '36px', marginRight: '14px' };
+import React, { useState, useEffect, useMemo } from "react";
+import "./App.css";
+import { shuffle } from "./utils";
+import { fetchAddressDataWithFallback } from "./gcsUtils";
+import sendReport from "./emailService";
+import StepForm from "./components/StepForm";
 
 /* -------------------- Config -------------------- */
+
 const API_BASE =
-  process.env.REACT_APP_API_BASE || 'https://api.demographikon.org';
+  process.env.REACT_APP_API_BASE || "https://api.demographikon.org";
 
 const GCS_PREFIX =
   process.env.REACT_APP_GCS_PREFIX ||
-  'https://storage.googleapis.com/pac20_oa_canvass';
+  "https://storage.googleapis.com/pac20_oa_canvass";
 
-const FALLBACK_URL = '/sample_address_data.csv';
+const FALLBACK_URL = "/sample_address_data.csv";
+const ADMIN_EMAIL = "demographikon.dev.01@gmail.com";
 
-const ISSUE_OPTIONS = [
-  'Immigration',
-  'Economy',
-  'NHS',
-  'Housing',
-  'Net Zero'
-];
+const ISSUE_OPTIONS = ["Immigration", "Economy", "NHS", "Housing", "Net Zero"];
 
 /* -------------------- Helpers -------------------- */
+
 const getQueryParam = (name) => {
   const fromSearch = new URLSearchParams(window.location.search).get(name);
   if (fromSearch) return fromSearch;
 
-  const hash = window.location.hash || '';
-  const q = hash.indexOf('?');
+  const hash = window.location.hash || "";
+  const q = hash.indexOf("?");
   if (q >= 0) {
-    return new URLSearchParams(hash.substring(q + 1)).get(name);
+    return new URLSearchParams(hash.slice(q + 1)).get(name);
   }
   return null;
 };
 
+const extractOAFromUrl = (url) => {
+  if (!url) return null;
+  try {
+    const tail = url.substring(url.lastIndexOf("/") + 1);
+    return tail.replace(".csv", "").split("_").pop();
+  } catch {
+    return null;
+  }
+};
+
+const sanitizeFilename = (s) =>
+  String(s || "").replace(/[^\w-]+/g, "-");
+
 async function sendCanvassRecord({ sessionToken, payload }) {
   try {
-    const resp = await fetch(`${API_BASE}/canvass/canvass-records`, {
-      method: 'POST',
+    await fetch(`${API_BASE}/canvass/canvass-records`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${sessionToken}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionToken}`,
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
-
-    if (!resp.ok) {
-      console.error('Canvass DB write failed:', resp.status);
-      return false;
-    }
-    return true;
   } catch (e) {
-    console.error('Canvass DB write error:', e);
-    return false;
+    console.error("DB write failed:", e);
   }
 }
 
 /* -------------------- App -------------------- */
+
 function App() {
-  /* ---- bootstrap ---- */
   const [bootstrapping, setBootstrapping] = useState(true);
   const [bootstrapError, setBootstrapError] = useState(null);
+
   const [sessionToken, setSessionToken] = useState(null);
   const [user, setUser] = useState(null);
   const [oa, setOA] = useState(null);
 
-  /* ---- canvass state ---- */
-  const [canvasserName, setCanvasserName] = useState('');
+  const [canvasserName, setCanvasserName] = useState("");
   const [addressData, setAddressData] = useState([]);
   const [visited, setVisited] = useState([]);
-  const [formData, setFormData] = useState({});
   const [responses, setResponses] = useState([]);
-  const [currentAddress, setCurrentAddress] = useState('');
+
+  const [currentAddress, setCurrentAddress] = useState("");
+  const [formData, setFormData] = useState({});
   const [step, setStep] = useState(0);
-  const [dataLoading, setDataLoading] = useState(true);
-  const [dataError, setDataError] = useState(null);
+
   const [issuesOrder, setIssuesOrder] = useState(ISSUE_OPTIONS);
 
   const isAdmin = useMemo(
-    () => user?.role === 'admin' || user?.role === 'sysadmin',
+    () => user?.role === "admin" || user?.role === "sysadmin",
     [user]
   );
 
-  /* -------------------- Bootstrap -------------------- */
+  /* -------- Bootstrap session -------- */
+
   useEffect(() => {
     async function bootstrap() {
       try {
-        const token = getQueryParam('token');
-        if (!token) throw new Error('Missing canvass token');
+        const token = getQueryParam("token");
+        const allowDev =
+          process.env.REACT_APP_ALLOW_DEV_BYPASS === "true";
 
-        const resp = await fetch(`${API_BASE}/canvass/canvass-session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
-        });
+        if (!token && !allowDev) {
+          throw new Error("Missing canvass token");
+        }
+
+        if (!token && allowDev) {
+          setSessionToken("__DEV__");
+          setUser({ id: "dev", role: "admin" });
+          setOA("E00181357");
+          setCanvasserName("Dev Tester");
+          return;
+        }
+
+        const resp = await fetch(
+          `${API_BASE}/canvass/canvass-session`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+          }
+        );
 
         if (!resp.ok) {
           throw new Error(`Session bootstrap failed (${resp.status})`);
@@ -147,75 +126,62 @@ function App() {
         setSessionToken(data.session_token);
         setUser(data.user);
         setOA(data.scope?.oa || null);
-        setCanvasserName(data.user?.name || data.user?.id || 'canvasser');
+        setCanvasserName(data.user?.name || data.user?.id);
       } catch (e) {
-        console.error(e);
         setBootstrapError(e.message);
       } finally {
         setBootstrapping(false);
       }
     }
+
     bootstrap();
   }, []);
 
-  /* -------------------- Load CSV -------------------- */
+  /* -------- Load addresses -------- */
+
   useEffect(() => {
-    if (bootstrapping || bootstrapError || !oa) return;
+    if (!oa || bootstrapError) return;
 
-    const url = `${GCS_PREFIX}/OA_${oa}.csv`;
-    setDataLoading(true);
-
+    const url = `${GCS_PREFIX}/OA_${encodeURIComponent(oa)}.csv`;
     fetchAddressDataWithFallback(url, FALLBACK_URL)
       .then(setAddressData)
-      .catch((e) => setDataError(e.message))
-      .finally(() => setDataLoading(false));
-  }, [bootstrapping, bootstrapError, oa]);
+      .catch((e) => console.error(e));
+  }, [oa, bootstrapError]);
 
-  /* -------------------- Steps -------------------- */
-  const startNewPass = () => {
-    setIssuesOrder(shuffle([...ISSUE_OPTIONS]));
-    setStep(0);
-  };
+  /* -------- Save response -------- */
 
-  const getFormSteps = () => {
-    const selected = addressData.find((a) => a.address === formData.address);
-    const residents = selected?.residents || [];
-
-    return [
-      { name: 'residents', type: 'checkbox', options: residents },
-      { name: 'party', type: 'radio', options: ['CON', 'LAB', 'LIBDEM', 'REF', 'GRN', 'OTH'] },
-      { name: 'support', type: 'radio', options: ['certain', 'strong', 'lean', 'none'] },
-      { name: 'likelihood', type: 'radio', options: ['definitely', 'probably', 'unlikely', 'no'] },
-      { name: 'issue', type: 'radio', options: issuesOrder },
-      { name: 'notes', type: 'textarea' }
-    ];
-  };
-
-  /* -------------------- Save response -------------------- */
   const saveResponse = (data, auto = false) => {
     const entry = {
       ...data,
       timestamp: new Date().toISOString(),
       canvasser: canvasserName,
-      OA: oa
+      OA: oa,
     };
 
-    const newResponses = [
-      ...responses.filter((r) => r.address !== data.address),
-      entry
-    ];
+    const filtered = responses.filter(
+      (r) => r.address !== data.address
+    );
+    const next = [...filtered, entry];
 
-    setResponses(newResponses);
+    setResponses(next);
     setVisited([...new Set([...visited, data.address])]);
-    localStorage.setItem('canvassData', JSON.stringify(newResponses));
+    localStorage.setItem("canvassData", JSON.stringify(next));
 
     if (sessionToken) {
       sendCanvassRecord({
         sessionToken,
         payload: {
           client_record_id: crypto.randomUUID(),
-          ...entry
-        }
+          address: data.address,
+          response: data.response,
+          residents: data.residents || null,
+          party: data.party || null,
+          support: data.support || null,
+          likelihood: data.likelihood || null,
+          issue: data.issue || null,
+          notes: data.notes || null,
+          canvassed_at: new Date().toISOString(),
+        },
       });
     }
 
@@ -223,49 +189,77 @@ function App() {
     if (auto || step === steps.length - 1) {
       setStep(0);
       setFormData({});
-      setCurrentAddress('');
+      setCurrentAddress("");
     } else {
       setStep(step + 1);
     }
   };
 
-  /* -------------------- Render guards -------------------- */
-  if (bootstrapping) return <div>🔐 Starting canvass session…</div>;
+  const getFormSteps = () => [
+    {
+      name: "party",
+      label: "Party Preference",
+      type: "radio",
+      options: ["CON", "LAB", "LIBDEM", "REF", "GRN", "OTH", "NONE"],
+    },
+    {
+      name: "support",
+      label: "Support level",
+      type: "radio",
+      options: ["certain", "strong", "lean to", "none"],
+    },
+    {
+      name: "likelihood",
+      label: "Likelihood of voting",
+      type: "radio",
+      options: ["definitely", "probably", "unlikely", "no"],
+    },
+    {
+      name: "issue",
+      label: "Most important issue",
+      type: "radio",
+      options: shuffle([...issuesOrder]),
+    },
+    { name: "notes", label: "Notes", type: "textarea" },
+  ];
 
-  if (bootstrapError)
-    return (
-      <div style={{ color: 'red' }}>
-        ❌ Cannot start canvassing: {bootstrapError}
-      </div>
-    );
+  /* -------- Render guards -------- */
 
-  /* -------------------- UI -------------------- */
+  if (bootstrapping) return <div>Starting canvass…</div>;
+
+  if (bootstrapError) {
+    return <div>❌ Cannot start canvassing: {bootstrapError}</div>;
+  }
+
+  /* -------- UI -------- */
+
   return (
     <div style={{ padding: 20 }}>
-      <h1 style={titleStyle}>demographiKon</h1>
-
-      <div><strong>User:</strong> {user?.id}</div>
-      <div><strong>OA:</strong> {oa}</div>
+      <h1>demographiKon</h1>
+      <div>User: {user?.id}</div>
+      <div>OA: {oa}</div>
 
       {!currentAddress && (
         <select
-          value=""
+          value={currentAddress}
           onChange={(e) => {
             setCurrentAddress(e.target.value);
             setFormData({ address: e.target.value });
+            setIssuesOrder(shuffle([...ISSUE_OPTIONS]));
           }}
-          style={inputStyle}
         >
-          <option value="">-- Choose an address --</option>
+          <option value="">Select address</option>
           {addressData
             .filter((a) => !visited.includes(a.address))
             .map((a, i) => (
-              <option key={i} value={a.address}>{a.address}</option>
+              <option key={i} value={a.address}>
+                {a.address}
+              </option>
             ))}
         </select>
       )}
 
-      {formData.response === 'Response' && (
+      {formData.response === "Response" && (
         <StepForm
           step={step}
           formData={formData}
@@ -273,12 +267,6 @@ function App() {
           stepConfig={getFormSteps()[step]}
           onNext={() => saveResponse(formData)}
         />
-      )}
-
-      {isAdmin && (
-        <button style={buttonStyle} onClick={() => sendReport()}>
-          Send Report
-        </button>
       )}
     </div>
   );
