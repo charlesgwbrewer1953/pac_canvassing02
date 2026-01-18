@@ -73,7 +73,7 @@ async function sendCanvassRecord({
 }) {
   try {
     const resp = await fetch(
-      `${API_BASE}/canvass-records`,
+      `${API_BASE}/canvass/canvass-records`,
       {
         method: "POST",
         headers: {
@@ -250,7 +250,7 @@ if (!tokenFromUrl && allowDevBypass) {
   return;
 }
 
-        const resp = await fetch(`${API_BASE}/canvass-session`, {
+        const resp = await fetch(`${API_BASE}/canvass/canvass-session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token: tokenFromUrl })
