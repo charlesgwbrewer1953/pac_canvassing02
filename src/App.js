@@ -429,21 +429,27 @@ function App() {
 
     // ✅ NEW: fire-and-forget DB write (Express -> Postgres)
     if (sessionToken && sessionToken !== "__DEV_SESSION__") {
-      sendCanvassRecord({
-        sessionToken,
-        payload: {
-          client_record_id: genUUID(),
-          address: data.address,
-          response: data.response,
-          residents: data.residents || null,
-          party: data.party || null,
-          support: data.support || null,
-          likelihood: data.likelihood || null,
-          issue: data.issue || null,
-          notes: data.notes || null,
-          canvassed_at: new Date().toISOString(),
-        },
-      });
+sendCanvassRecord({
+  sessionToken,
+  payload: {
+    client_record_id: crypto.randomUUID(),
+
+    address: data.address,
+    response: data.response,
+
+    respondent_name: Array.isArray(data.residents)
+      ? data.residents.join(", ")
+      : null,
+
+    party_choice: data.party || null,
+    party_support: data.support || null,
+    voting_likelihood: data.likelihood || null,
+    most_important_issue: data.issue || null,
+
+    notes: data.notes || null,
+    canvassed_at: new Date().toISOString()
+  }
+});
     }
 
     const steps = getFormSteps();
