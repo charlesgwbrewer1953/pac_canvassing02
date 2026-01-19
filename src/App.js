@@ -70,7 +70,7 @@ const GCS_PREFIX =
 // Local fallback CSV bundled with the site
 const FALLBACK_URL = "/sample_address_data.csv";
 
-// Used in the success alert (keeps lint happy + user clarity)
+// Used in the success alert
 const ADMIN_EMAIL = "demographikon.dev.01@gmail.com";
 
 // Issues (shuffled per pass)
@@ -144,6 +144,14 @@ const genUUID = () => {
   return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 };
 
+function normalizeEnum(value) {
+  if (value === null || value === undefined) return null;
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
 // -------------------- API Calls --------------------
 async function sendCanvassRecord({ sessionToken, payload }) {
   try {
@@ -158,7 +166,6 @@ async function sendCanvassRecord({ sessionToken, payload }) {
 
     if (!resp.ok) {
       const text = await resp.text();
-      // This is the key thing you need when debugging 400s:
       console.error("❌ Canvass DB write failed:", resp.status, text);
       return { ok: false, status: resp.status, text };
     }
@@ -365,7 +372,7 @@ function App() {
     const steps = getFormSteps();
     const isFinalStep = auto || step === steps.length - 1;
 
-    // Always save locally (so the UI remains snappy and robust)
+    // Always save locally
     const newEntry = {
       ...data,
       timestamp: new Date().toISOString(),
@@ -381,21 +388,21 @@ function App() {
     setVisited(newVisited);
     localStorage.setItem("canvassData", JSON.stringify(newResponses));
 
-    // ONLY write to DB once the record is actually “complete”
+    // Write to DB only once record is complete
     if (isFinalStep) {
       if (sessionToken) {
         const dbPayload = {
           client_record_id: genUUID(),
           address: data.address,
-          response: data.response, // backend normalizes enums; keep your existing labels
-          residents: data.residents || null,
-          party_choice: data.party || null,
-          party_support: data.support || null,
-          voting_likelihood: data.likelihood || null,
-          most_important_issue: data.issue || null,
+
+          response: normalizeEnum(data.response),
+          party: normalizeEnum(data.party),
+          support: normalizeEnum(data.support),
+          likelihood: normalizeEnum(data.likelihood),
+          issue: normalizeEnum(data.issue),
+
           notes: data.notes || null,
           canvassed_at: new Date().toISOString(),
-          canvass_date: new Date().toISOString().split("T")[0],
         };
 
         await sendCanvassRecord({ sessionToken, payload: dbPayload });
@@ -431,7 +438,7 @@ function App() {
     }
   };
 
-  // -------------------- Email report sender (unchanged behaviour) --------------------
+  // -------------------- Email report sender --------------------
   const sendResults = async () => {
     const mergedByAddress = responses.reduce((acc, curr) => {
       const existing = acc[curr.address];
@@ -689,7 +696,9 @@ function App() {
                 {sendBtnLabel}
               </button>
 
-              <div style={{ marginTop: 10, fontSize: "14px", color: "#666" }}>📊 Responses: {responses.length}</div>
+              <div style={{ marginTop: 10, fontSize: "14px", color: "#666" }}>
+                📊 Responses: {responses.length}
+              </div>
             </div>
           )}
         </div>
