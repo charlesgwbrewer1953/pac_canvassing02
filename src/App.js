@@ -334,38 +334,98 @@ function App() {
       .finally(() => setDataLoading(false));
   }, [bootstrapping, bootstrapError, oa]);
 
+
+  // Canonical enum metadata from backend (DB is source of truth)
+const [enums, setEnums] = useState(null);
+const [metaLoading, setMetaLoading] = useState(true);
+const [metaError, setMetaError] = useState(null);
+
+useEffect(() => {
+  let cancelled = false;
+
+  async function loadEnums() {
+    try {
+      const resp = await fetch(`${API_BASE}/canvass/metadata`);
+      if (!resp.ok) {
+        throw new Error(`metadata_failed_${resp.status}`);
+      }
+      const data = await resp.json();
+      if (!cancelled) {
+        setEnums(data);
+      }
+    } catch (e) {
+      if (!cancelled) setMetaError(e.message);
+    } finally {
+      if (!cancelled) setMetaLoading(false);
+    }
+  }
+
+  loadEnums();
+  return () => { cancelled = true; };
+}, []);
+
   // -------------------- Steps --------------------
   const startNewPass = () => {
     setIssuesOrder(shuffle([...ISSUE_OPTIONS]));
     setStep(0);
   };
 
-  const getFormSteps = () => {
-    const selected = addressData.find((a) => a.address === formData.address);
-    const residents = selected?.residents || [];
+const getFormSteps = () => {
+  const selected = addressData.find(a => a.address === formData.address);
+  const residents = selected?.residents || [];
 
-    return [
-      { name: "residents", label: "Who was spoken to?", type: "checkbox", options: residents },
-      {
-        name: "party",
-        label: "Party Preference",
-        type: "radio",
-        options: [
-          { value: "CON", label: "Conservative", color: "blue" },
-          { value: "LAB", label: "Labour", color: "red" },
-          { value: "LIBDEM", label: "Liberal Democrat", color: "darkorange" },
-          { value: "REF", label: "Reform", color: "#4FAED6" },
-          { value: "GRN", label: "Green", color: "green" },
-          { value: "OTH", label: "Other", color: "grey" },
-          { value: "NONE", label: "None", color: "black" },
-        ],
-      },
-      { name: "support", label: "Support level", type: "radio", options: ["certain", "strong", "lean to", "none"] },
-      { name: "likelihood", label: "Likelihood of Voting", type: "radio", options: ["definitely", "probably", "unlikely", "no"] },
-      { name: "issue", label: "Most Important Issue", type: "radio", options: issuesOrder },
-      { name: "notes", label: "Notes", type: "textarea" },
-    ];
-  };
+  if (!enums) return [];
+
+  return [
+    {
+      name: "residents",
+      label: "Who was spoken to?",
+      type: "checkbox",
+      options: residents,
+    },
+    {
+      name: "party",
+      label: "Party Preference",
+      type: "radio",
+      options: enums.party.map(v => ({
+        value: v,                 // CANONICAL
+        label: v.toUpperCase(),   // DISPLAY ONLY
+      })),
+    },
+    {
+      name: "support",
+      label: "Support level",
+      type: "radio",
+      options: enums.support.map(v => ({
+        value: v,
+        label: v.replace("_", " "),
+      })),
+    },
+    {
+      name: "likelihood",
+      label: "Likelihood of Voting",
+      type: "radio",
+      options: enums.likelihood.map(v => ({
+        value: v,
+        label: v.replace("_", " "),
+      })),
+    },
+    {
+      name: "issue",
+      label: "Most Important Issue",
+      type: "radio",
+      options: enums.issue.map(v => ({
+        value: v,
+        label: v.replace("_", " "),
+      })),
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      type: "textarea",
+    },
+  ];
+};
 
   // -------------------- Save response + (only when complete) write to DB --------------------
   const saveResponse = async (data, auto = false) => {
@@ -391,19 +451,19 @@ function App() {
     // Write to DB only once record is complete
     if (isFinalStep) {
       if (sessionToken) {
-        const dbPayload = {
-          client_record_id: genUUID(),
-          address: data.address,
+const dbPayload = {
+  client_record_id: genUUID(),
+  address: data.address,
 
-          response: normalizeEnum(data.response),
-          party: normalizeEnum(data.party),
-          support: normalizeEnum(data.support),
-          likelihood: normalizeEnum(data.likelihood),
-          issue: normalizeEnum(data.issue),
+  response: data.response,
+  party: data.party ?? null,
+  support: data.support ?? null,
+  likelihood: data.likelihood ?? null,
+  issue: data.issue ?? null,
 
-          notes: data.notes || null,
-          canvassed_at: new Date().toISOString(),
-        };
+  notes: data.notes || null,
+  canvassed_at: new Date().toISOString(),
+};
 
         await sendCanvassRecord({ sessionToken, payload: dbPayload });
       } else {
@@ -566,7 +626,27 @@ function App() {
           <strong>OA:</strong> {oa || "unknown"}
         </div>
       </div>
+{/* -------------------- Metadata guard -------------------- */}
+{metaLoading && (
+  <div style={{ ...inputStyle, backgroundColor: "#f0f0f0" }}>
+    📡 Loading canvass metadata…
+  </div>
+)}
 
+{metaError && (
+  <div style={{ ...inputStyle, backgroundColor: "#ffe6e6", color: "#d00" }}>
+    ❌ Cannot load canvass metadata: {metaError}
+  </div>
+)}
+
+{!metaLoading && !metaError && !enums && (
+  <div style={{ ...inputStyle, backgroundColor: "#ffe6e6", color: "#d00" }}>
+    ❌ Metadata missing (cannot continue)
+  </div>
+)}
+
+{/* STOP RENDER HERE UNTIL METADATA EXISTS */}
+{metaLoading || metaError || !enums ? null : (
       {/* Address selector */}
       {!currentAddress && (
         <label>
@@ -608,8 +688,8 @@ function App() {
             <label
               style={{
                 ...radioLabelStyle,
-                backgroundColor: formData.response === "Response" ? "#007bff" : "#e8e8e8",
-                color: formData.response === "Response" ? "#fff" : "#000",
+                backgroundColor: formData.response === "response" ? "#007bff" : "#e8e8e8",
+                color: formData.response === "response" ? "#fff" : "#000",
                 margin: "0",
                 display: "flex",
                 width: "100%",
@@ -618,11 +698,11 @@ function App() {
               <input
                 type="radio"
                 name="response"
-                value="Response"
-                checked={formData.response === "Response"}
+                value="response"
+          checked={formData.response === "response"}
                 onChange={() => {
                   startNewPass();
-                  setFormData({ ...formData, response: "Response" });
+                  setFormData({ ...formData, response: "response" });
                 }}
                 style={radioInputStyle}
               />
@@ -632,8 +712,8 @@ function App() {
             <label
               style={{
                 ...radioLabelStyle,
-                backgroundColor: formData.response === "No Response" ? "#6c757d" : "#e8e8e8",
-                color: formData.response === "No Response" ? "#fff" : "#000",
+                backgroundColor: formData.response === "np_response" ? "#6c757d" : "#e8e8e8",
+                color: formData.response === "no_response" ? "#fff" : "#000",
                 margin: "0",
                 display: "flex",
                 width: "100%",
@@ -642,10 +722,10 @@ function App() {
               <input
                 type="radio"
                 name="response"
-                value="No Response"
-                checked={formData.response === "No Response"}
+                value="no_response"
+          checked={formData.response === "no_response"}
                 onChange={() => {
-                  saveResponse({ address: formData.address, response: "No Response" }, true);
+                  saveResponse({ address: formData.address, response: "no_response" }, true);
                 }}
                 style={radioInputStyle}
               />
@@ -655,7 +735,7 @@ function App() {
         </div>
       )}
 
-      {formData.response === "Response" && (
+      {formData.response === "response" && (
         <StepForm
           step={step}
           formData={formData}
@@ -709,6 +789,7 @@ function App() {
         <div>Source: {sourceRef || "n/a"}</div>
         <div>Session token: {sessionToken ? "✅ present" : "❌ missing"}</div>
       </div>
+)}
     </div>
   );
 }
