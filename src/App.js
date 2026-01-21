@@ -646,9 +646,10 @@ const dbPayload = {
 )}
 
 {/* STOP RENDER HERE UNTIL METADATA EXISTS */}
-{metaLoading || metaError || !enums ? null : (
-      {/* Address selector */}
-      {!currentAddress && (
+{!(metaLoading || metaError || !enums) && (
+  <>
+    {/* Address selector */}
+    {!currentAddress && (
         <label>
           Select Address:
           <br />
@@ -712,7 +713,7 @@ const dbPayload = {
             <label
               style={{
                 ...radioLabelStyle,
-                backgroundColor: formData.response === "np_response" ? "#6c757d" : "#e8e8e8",
+                backgroundColor: formData.response === "no_response" ? "#6c757d" : "#e8e8e8",
                 color: formData.response === "no_response" ? "#fff" : "#000",
                 margin: "0",
                 display: "flex",
