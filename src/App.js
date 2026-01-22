@@ -7,16 +7,14 @@ const API_BASE = process.env.REACT_APP_API_BASE;
 
 /**
  * Robust token extraction:
- * - works for ?token=...
- * - works for #/start?token=...
+ * - ?token=...
+ * - #/start?token=...
  */
 function getTokenFromUrl() {
-  // Standard query string
   const searchParams = new URLSearchParams(window.location.search);
   const searchToken = searchParams.get("token");
   if (searchToken) return searchToken;
 
-  // Hash-based routing: #/start?token=...
   if (window.location.hash.includes("?")) {
     const hashQuery = window.location.hash.split("?")[1];
     const hashParams = new URLSearchParams(hashQuery);
@@ -40,7 +38,7 @@ export default function App() {
   const [enums, setEnums] = useState(null);
 
   // -------------------------
-  // Addresses (stubbed CSV)
+  // Addresses (temporary)
   // -------------------------
   const [addresses, setAddresses] = useState([]);
   const [currentAddress, setCurrentAddress] = useState(null);
@@ -56,22 +54,11 @@ export default function App() {
   const [notes, setNotes] = useState("");
 
   // -------------------------
-  // Guard: API base must exist
-  // -------------------------
-  if (!API_BASE) {
-    return (
-      <div style={{ padding: 20, color: "red" }}>
-        Missing REACT_APP_API_BASE environment variable
-      </div>
-    );
-  }
-
-  // -------------------------
   // Create canvass session
   // -------------------------
   useEffect(() => {
     const token = getTokenFromUrl();
-    if (!token) return;
+    if (!token || !API_BASE) return;
 
     fetch(`${API_BASE}/canvass/canvass-session`, {
       method: "POST",
@@ -90,10 +77,10 @@ export default function App() {
   }, []);
 
   // -------------------------
-  // Load metadata (enums)
+  // Load metadata
   // -------------------------
   useEffect(() => {
-    if (!sessionToken) return;
+    if (!sessionToken || !API_BASE) return;
 
     fetch(`${API_BASE}/canvass/metadata`, {
       headers: {
@@ -108,17 +95,19 @@ export default function App() {
   }, [sessionToken]);
 
   // -------------------------
-  // Load addresses (TEMP)
+  // Load addresses (stub)
   // -------------------------
   useEffect(() => {
     if (!oa) return;
 
-    // TEMP: replace later with real OA-based source
     fetch("/sample_address_data.csv")
       .then(res => res.text())
       .then(text => {
         const rows = text.split("\n").slice(1).filter(Boolean);
         setAddresses(rows);
+      })
+      .catch(err => {
+        console.error("Address load error:", err);
       });
   }, [oa]);
 
@@ -135,7 +124,7 @@ export default function App() {
   }
 
   function saveRecord() {
-    if (!currentAddress || !response) return;
+    if (!currentAddress || !response || !API_BASE) return;
 
     fetch(`${API_BASE}/canvass/canvass-records`, {
       method: "POST",
@@ -144,6 +133,7 @@ export default function App() {
         Authorization: `Bearer ${sessionToken}`,
       },
       body: JSON.stringify({
+        client_record_id: crypto.randomUUID(),
         address: currentAddress,
         response,
         party,
@@ -163,8 +153,16 @@ export default function App() {
   }
 
   // -------------------------
-  // Render guards
+  // Render guards (SAFE)
   // -------------------------
+  if (!API_BASE) {
+    return (
+      <div style={{ padding: 20, color: "red" }}>
+        Missing REACT_APP_API_BASE environment variable
+      </div>
+    );
+  }
+
   if (!user || !enums) {
     return <div style={{ padding: 20 }}>Loading…</div>;
   }
@@ -182,14 +180,10 @@ export default function App() {
         <strong>OA:</strong> {oa}
       </p>
 
-      {/* ---------------- Address selection ---------------- */}
       {!currentAddress && (
         <>
           <h3>Select Address</h3>
-          <select
-            value=""
-            onChange={e => setCurrentAddress(e.target.value)}
-          >
+          <select value="" onChange={e => setCurrentAddress(e.target.value)}>
             <option value="">-- Choose an address --</option>
             {addresses.map((a, i) => (
               <option key={i} value={a}>
@@ -200,15 +194,12 @@ export default function App() {
         </>
       )}
 
-      {/* ---------------- Response step ---------------- */}
       {currentAddress && !response && (
         <ResponseSelector
           options={enums.response}
           value={response}
           onChange={value => {
             setResponse(value);
-
-            // TERMINAL RESPONSE: auto-save
             if (value !== "response") {
               setTimeout(saveRecord, 0);
             }
@@ -216,7 +207,6 @@ export default function App() {
         />
       )}
 
-      {/* ---------------- Survey (ONLY if response === "response") ---------------- */}
       {currentAddress && response === "response" && (
         <>
           <h3>Political Party</h3>
@@ -268,11 +258,8 @@ export default function App() {
                 onChange={e => setNotes(e.target.value)}
                 style={{ width: "100%" }}
               />
-
               <br /><br />
-              <button onClick={saveRecord}>
-                Save Response
-              </button>
+              <button onClick={saveRecord}>Save Response</button>
             </>
           )}
         </>
