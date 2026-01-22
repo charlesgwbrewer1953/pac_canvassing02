@@ -5,20 +5,49 @@ import PartySelector from "./components/PartySelector";
 
 const API_BASE = process.env.REACT_APP_API_BASE;
 
+/**
+ * Robust token extraction:
+ * - works for ?token=...
+ * - works for #/start?token=...
+ */
+function getTokenFromUrl() {
+  // Standard query string
+  const searchParams = new URLSearchParams(window.location.search);
+  const searchToken = searchParams.get("token");
+  if (searchToken) return searchToken;
+
+  // Hash-based routing: #/start?token=...
+  if (window.location.hash.includes("?")) {
+    const hashQuery = window.location.hash.split("?")[1];
+    const hashParams = new URLSearchParams(hashQuery);
+    return hashParams.get("token");
+  }
+
+  return null;
+}
+
 export default function App() {
-  // ---- auth / session ----
+  // -------------------------
+  // Session / auth
+  // -------------------------
   const [sessionToken, setSessionToken] = useState(null);
   const [user, setUser] = useState(null);
   const [oa, setOa] = useState(null);
 
-  // ---- metadata ----
+  // -------------------------
+  // Metadata (DB enums)
+  // -------------------------
   const [enums, setEnums] = useState(null);
 
-  // ---- address ----
+  // -------------------------
+  // Addresses (stubbed CSV)
+  // -------------------------
   const [addresses, setAddresses] = useState([]);
   const [currentAddress, setCurrentAddress] = useState(null);
 
-  // ---- canvass state ----
+  // -------------------------
+  // Canvass state
+  // -------------------------
   const [response, setResponse] = useState(null);
   const [party, setParty] = useState(null);
   const [support, setSupport] = useState(null);
@@ -26,12 +55,22 @@ export default function App() {
   const [issue, setIssue] = useState(null);
   const [notes, setNotes] = useState("");
 
-  // ------------------------------------------------------------
-  // Boot: read token, create session
-  // ------------------------------------------------------------
+  // -------------------------
+  // Guard: API base must exist
+  // -------------------------
+  if (!API_BASE) {
+    return (
+      <div style={{ padding: 20, color: "red" }}>
+        Missing REACT_APP_API_BASE environment variable
+      </div>
+    );
+  }
+
+  // -------------------------
+  // Create canvass session
+  // -------------------------
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get("token");
+    const token = getTokenFromUrl();
     if (!token) return;
 
     fetch(`${API_BASE}/canvass/canvass-session`, {
@@ -44,12 +83,15 @@ export default function App() {
         setSessionToken(data.session_token);
         setUser(data.user);
         setOa(data.scope?.oa);
+      })
+      .catch(err => {
+        console.error("Session error:", err);
       });
   }, []);
 
-  // ------------------------------------------------------------
-  // Load metadata (canonical enums)
-  // ------------------------------------------------------------
+  // -------------------------
+  // Load metadata (enums)
+  // -------------------------
   useEffect(() => {
     if (!sessionToken) return;
 
@@ -59,26 +101,30 @@ export default function App() {
       },
     })
       .then(res => res.json())
-      .then(setEnums);
+      .then(setEnums)
+      .catch(err => {
+        console.error("Metadata error:", err);
+      });
   }, [sessionToken]);
 
-  // ------------------------------------------------------------
-  // Load addresses (CSV already handled elsewhere)
-  // ------------------------------------------------------------
+  // -------------------------
+  // Load addresses (TEMP)
+  // -------------------------
   useEffect(() => {
     if (!oa) return;
 
-    fetch(`/sample_address_data.csv`)
+    // TEMP: replace later with real OA-based source
+    fetch("/sample_address_data.csv")
       .then(res => res.text())
       .then(text => {
-        const rows = text.split("\n").slice(1);
-        setAddresses(rows.filter(Boolean));
+        const rows = text.split("\n").slice(1).filter(Boolean);
+        setAddresses(rows);
       });
   }, [oa]);
 
-  // ------------------------------------------------------------
+  // -------------------------
   // Helpers
-  // ------------------------------------------------------------
+  // -------------------------
   function resetSurvey() {
     setResponse(null);
     setParty(null);
@@ -88,7 +134,7 @@ export default function App() {
     setNotes("");
   }
 
-  function saveRecord(isTerminal = false) {
+  function saveRecord() {
     if (!currentAddress || !response) return;
 
     fetch(`${API_BASE}/canvass/canvass-records`, {
@@ -106,34 +152,37 @@ export default function App() {
         issue,
         notes,
       }),
-    }).then(() => {
-      resetSurvey();
-      setCurrentAddress(null);
-    });
+    })
+      .then(() => {
+        resetSurvey();
+        setCurrentAddress(null);
+      })
+      .catch(err => {
+        console.error("Save error:", err);
+      });
   }
 
-  // ------------------------------------------------------------
+  // -------------------------
   // Render guards
-  // ------------------------------------------------------------
+  // -------------------------
   if (!user || !enums) {
-    return <div>Loading…</div>;
+    return <div style={{ padding: 20 }}>Loading…</div>;
   }
 
-  // ------------------------------------------------------------
+  // -------------------------
   // UI
-  // ------------------------------------------------------------
+  // -------------------------
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: 20 }}>
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: 20 }}>
       <h2>demographiKon</h2>
 
       <p>
-        <strong>User:</strong> {user.id} ({user.role})<br />
+        <strong>User:</strong> {user.id} ({user.role})
+        <br />
         <strong>OA:</strong> {oa}
       </p>
 
-      {/* -------------------------------------------------- */}
-      {/* Address selection */}
-      {/* -------------------------------------------------- */}
+      {/* ---------------- Address selection ---------------- */}
       {!currentAddress && (
         <>
           <h3>Select Address</h3>
@@ -151,9 +200,7 @@ export default function App() {
         </>
       )}
 
-      {/* -------------------------------------------------- */}
-      {/* Response step */}
-      {/* -------------------------------------------------- */}
+      {/* ---------------- Response step ---------------- */}
       {currentAddress && !response && (
         <ResponseSelector
           options={enums.response}
@@ -161,17 +208,15 @@ export default function App() {
           onChange={value => {
             setResponse(value);
 
-            // TERMINAL RESPONSE
+            // TERMINAL RESPONSE: auto-save
             if (value !== "response") {
-              setTimeout(() => saveRecord(true), 0);
+              setTimeout(saveRecord, 0);
             }
           }}
         />
       )}
 
-      {/* -------------------------------------------------- */}
-      {/* Survey steps (ONLY if response === "response") */}
-      {/* -------------------------------------------------- */}
+      {/* ---------------- Survey (ONLY if response === "response") ---------------- */}
       {currentAddress && response === "response" && (
         <>
           <h3>Political Party</h3>
@@ -225,7 +270,7 @@ export default function App() {
               />
 
               <br /><br />
-              <button onClick={() => saveRecord(false)}>
+              <button onClick={saveRecord}>
                 Save Response
               </button>
             </>
