@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import PartySelector from "./PartySelector";
 import OptionGrid from "./OptionGrid";
 
-const pretty = (v) => String(v).replace(/_/g, " ");
+
 
 export default function StepForm({
   enums,
