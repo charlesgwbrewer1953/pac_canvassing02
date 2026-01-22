@@ -56,15 +56,33 @@ export default function StepForm({ step, formData, setFormData, stepConfig, onNe
             {options.map((option, idx) => {
               const optionValue = typeof option === 'string' ? option : option.value;
               const optionLabel = typeof option === 'string' ? option : option.label;
-              const optionColor = typeof option === 'string' ? '#000' : option.color;
+              const optionColor = typeof option === 'string' ? '#000' : (option.color || '#000');
+
+              const isSelected = formData[name] === optionValue;
+
+              const textForBackground = (hex) => {
+                // Simple luminance check to choose readable text color
+                const h = String(hex || '').replace('#', '');
+                if (h.length !== 6) return '#fff';
+                const r = parseInt(h.slice(0, 2), 16);
+                const g = parseInt(h.slice(2, 4), 16);
+                const b = parseInt(h.slice(4, 6), 16);
+                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                return luminance > 0.6 ? '#000' : '#fff';
+              };
+
+              const selectedTextColor =
+                typeof option === 'string'
+                  ? '#fff'
+                  : (option.textColor || textForBackground(optionColor));
 
               return (
                 <label
                   key={idx}
                   style={{
                     ...radioLabelStyle,
-                    backgroundColor: formData[name] === optionValue ? optionColor : '#e8e8e8',
-                    color: formData[name] === optionValue ? '#fff' : '#000',
+                    backgroundColor: isSelected ? optionColor : '#e8e8e8',
+                    color: isSelected ? selectedTextColor : '#000',
                     margin: '0',
                     display: 'flex',
                     width: '100%'
