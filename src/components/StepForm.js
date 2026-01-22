@@ -1,146 +1,134 @@
-// src/components/StepForm.js
-import React from 'react';
+import React, { useMemo, useState, useEffect } from "react";
+import PartySelector from "./PartySelector";
+import OptionGrid from "./OptionGrid";
 
-// Local copies of the styles used by StepForm (same values as in App.js)
-const inputStyle = { width: '40ch', fontSize: '18px', padding: '10px', marginBottom: '10px' };
-const buttonStyle = { padding: '10px 20px', fontSize: '16px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '6px', marginTop: '10px' };
-const radioLabelStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  fontSize: '20px',
-  padding: '12px 18px',
-  backgroundColor: '#e8e8e8',
-  borderRadius: '8px',
-  border: '2px solid #ccc', // ← fixed quotes
-  cursor: 'pointer'
-};
-const radioInputStyle = { width: '36px', height: '36px', marginRight: '14px', cursor: 'pointer' };
+const pretty = (v) => String(v).replace(/_/g, " ");
 
-export default function StepForm({ step, formData, setFormData, stepConfig, onNext }) {
-  if (!stepConfig) return null;
+export default function StepForm({
+  enums,
+  value,
+  onChange,
+  onDone,
+  onBackToResponse,
+}) {
+  // value = draft fields object (party/support/likelihood/issue/notes)
+  const [step, setStep] = useState(0);
 
-  const { name, label, type, options } = stepConfig;
+  // Reset wizard position when the address changes / new draft starts
+  useEffect(() => {
+    setStep(0);
+  }, []);
 
-  const handleChange = (value) => {
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const renderInput = () => {
-    switch (type) {
-      case 'checkbox':
-        return (
-          <div>
-            {options.map((option, idx) => (
-              <label key={idx} style={{ display: 'block', margin: '10px 0' }}>
-                <input
-                  type="checkbox"
-                  checked={(formData[name] || []).includes(option)}
-                  onChange={(e) => {
-                    const current = formData[name] || [];
-                    const updated = e.target.checked
-                      ? [...current, option]
-                      : current.filter(item => item !== option);
-                    handleChange(updated);
-                  }}
-                  style={{ width: '28px', height: '28px', marginRight: '12px', cursor: 'pointer' }}
-                />
-                {option}
-              </label>
-            ))}
-          </div>
-        );
-
-      case 'radio':
-        return (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {options.map((option, idx) => {
-              const optionValue = typeof option === 'string' ? option : option.value;
-              const optionLabel = typeof option === 'string' ? option : option.label;
-              const optionColor = typeof option === 'string' ? '#000' : (option.color || '#000');
-
-              const isSelected = formData[name] === optionValue;
-
-              const textForBackground = (hex) => {
-                // Simple luminance check to choose readable text color
-                const h = String(hex || '').replace('#', '');
-                if (h.length !== 6) return '#fff';
-                const r = parseInt(h.slice(0, 2), 16);
-                const g = parseInt(h.slice(2, 4), 16);
-                const b = parseInt(h.slice(4, 6), 16);
-                const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-                return luminance > 0.6 ? '#000' : '#fff';
-              };
-
-              const selectedTextColor =
-                typeof option === 'string'
-                  ? '#fff'
-                  : (option.textColor || textForBackground(optionColor));
-
-              return (
-                <label
-                  key={idx}
-                  style={{
-                    ...radioLabelStyle,
-                    backgroundColor: isSelected ? optionColor : '#e8e8e8',
-                    color: isSelected ? selectedTextColor : '#000',
-                    margin: '0',
-                    display: 'flex',
-                    width: '100%'
-                  }}
-                >
-                  <input
-                    type="radio"
-                    name={name}
-                    value={optionValue}
-                    checked={formData[name] === optionValue}
-                    onChange={() => handleChange(optionValue)}
-                    style={radioInputStyle}
-                  />
-                  {optionLabel}
-                </label>
-              );
-            })}
-          </div>
-        );
-
-      case 'select':
-        return (
-          <select
-            value={formData[name] || ''}
-            onChange={(e) => handleChange(e.target.value)}
-            style={{ ...inputStyle, width: '100%' }}
-          >
-            <option value="">-- Select an option --</option>
-            {options.map((option, idx) => (
-              <option key={idx} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        );
-
-      case 'textarea':
-        return (
-          <textarea
-            value={formData[name] || ''}
-            onChange={(e) => handleChange(e.target.value)}
-            style={{ ...inputStyle, height: '100px', resize: 'none' }}
+  const steps = useMemo(
+    () => [
+      {
+        key: "party",
+        title: "Political Party",
+        render: () => (
+          <PartySelector
+            options={enums.party}
+            value={value.party || null}
+            onChange={(party) => onChange({ ...value, party })}
           />
-        );
+        ),
+        canNext: !!value.party,
+      },
+      {
+        key: "support",
+        title: "Strength of Support",
+        render: () => (
+          <OptionGrid
+            options={enums.support}
+            selected={value.support || null}
+            onSelect={(support) => onChange({ ...value, support })}
+          />
+        ),
+        canNext: !!value.support,
+      },
+      {
+        key: "likelihood",
+        title: "Likelihood to Vote",
+        render: () => (
+          <OptionGrid
+            options={enums.likelihood}
+            selected={value.likelihood || null}
+            onSelect={(likelihood) => onChange({ ...value, likelihood })}
+          />
+        ),
+        canNext: !!value.likelihood,
+      },
+      {
+        key: "issue",
+        title: "Most Important Issue",
+        render: () => (
+          <OptionGrid
+            options={enums.issue}
+            selected={value.issue || null}
+            onSelect={(issue) => onChange({ ...value, issue })}
+          />
+        ),
+        canNext: !!value.issue,
+      },
+      {
+        key: "notes",
+        title: "Notes",
+        render: () => (
+          <textarea
+            rows={5}
+            value={value.notes || ""}
+            onChange={(e) => onChange({ ...value, notes: e.target.value })}
+            style={{ width: "100%", fontSize: 16, padding: 10 }}
+            placeholder="Optional notes…"
+          />
+        ),
+        canNext: true,
+      },
+    ],
+    [enums, value, onChange]
+  );
 
-      default:
-        return null;
-    }
-  };
+  const current = steps[step];
+  const isLast = step === steps.length - 1;
 
   return (
-    <div style={{ marginTop: 20, padding: 20, borderRadius: '8px', border: '1px solid #ccc', backgroundColor: '#f9f9f9' }}>
-      <div style={{ marginBottom: 10, fontSize: '18px', fontWeight: 'bold' }}>{label}</div>
-      {renderInput()}
-      <div style={{ marginTop: 10, textAlign: 'right' }}>
-        <button onClick={onNext} style={{ ...buttonStyle, width: '100px' }}>
-          Next
+    <div style={{ marginTop: 18 }}>
+      <h3 style={{ marginBottom: 10 }}>{current.title}</h3>
+
+      <div style={{ marginBottom: 16 }}>{current.render()}</div>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          type="button"
+          onClick={() => {
+            if (step === 0) {
+              onBackToResponse?.();
+              return;
+            }
+            setStep((s) => Math.max(0, s - 1));
+          }}
+        >
+          ← Previous
         </button>
+
+        {!isLast && (
+          <button
+            type="button"
+            onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
+            disabled={!current.canNext}
+          >
+            Next →
+          </button>
+        )}
+
+        {isLast && (
+          <button type="button" onClick={onDone}>
+            Save Response
+          </button>
+        )}
+      </div>
+
+      <div style={{ marginTop: 10, opacity: 0.6 }}>
+        Step {step + 1} of {steps.length}
       </div>
     </div>
   );
