@@ -368,7 +368,7 @@ export default function App() {
 
       {/* 3) Response selection */}
       {currentAddress && response === null && (
-        <ResponseSelector options={enums.response} value={response} onResponse={setResponse} />
+        <ResponseSelector options={enums.response} value={response} onChange={setResponse} />
       )}
 
       {/* 4) Terminal response -> finalize immediately */}
@@ -386,13 +386,13 @@ export default function App() {
         <StepForm
           enums={enums}
           value={{ party, support, likelihood, issue, notes }}
-          onChange={(v) => {
-            setParty(v.party ?? party);
-            setSupport(v.support ?? support);
-            setLikelihood(v.likelihood ?? likelihood);
-            setIssue(v.issue ?? issue);
-            setNotes(v.notes ?? notes);
-          }}
+  onChange={(patch) => {
+    if ("party" in patch) setParty(patch.party);
+    if ("support" in patch) setSupport(patch.support);
+    if ("likelihood" in patch) setLikelihood(patch.likelihood);
+    if ("issue" in patch) setIssue(patch.issue);
+    if ("notes" in patch) setNotes(patch.notes);
+  }}
           onBackToResponse={() => setResponse(null)}
           onDone={finalizeRecord}
         />
