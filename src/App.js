@@ -124,13 +124,28 @@ export default function App() {
     }
   });
 
+  // ---- LIVE REFS (avoid stale closures in retry loop) ----
+const sessionRef = useRef(null);
+const queueRef = useRef([]);
+  
+
   useEffect(() => {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   }, [queue]);
 
+  useEffect(() => {
+  sessionRef.current = session;
+}, [session]);
+
+useEffect(() => {
+  queueRef.current = queue;
+}, [queue]);
+
   // retry loop
   const [sending, setSending] = useState(false);
   const retryTimerRef = useRef(null);
+
+
 
   // bootstrap: token -> session -> enums
   useEffect(() => {
@@ -197,76 +212,110 @@ export default function App() {
     setCurrentAddress(null);
   }
 
-  async function trySendToDbOnce() {
-    if (!session?.session_token) return;
 
-    // send only unsent
-    const unsent = queue.filter((r) => !r.db_sent_at);
-    if (!unsent.length) return;
 
-    for (const rec of unsent) {
-      try {
-        const res = await fetch(`${API_BASE}/canvass/canvass-records`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.session_token}`,
-          },
-          body: JSON.stringify({
-            client_record_id: rec.client_record_id,
-            address: rec.address,
-            response: rec.response,
-            party: rec.party,
-            support: rec.support,
-            likelihood: rec.likelihood,
-            issue: rec.issue,
-            notes: rec.notes,
-          }),
-        });
+async function trySendToDbOnce() {
+  const currentSession = sessionRef.current;
+  const currentQueue = queueRef.current;
 
-        if (!res.ok) {
-          const txt = await res.text().catch(() => "");
-          throw new Error(`${res.status} ${txt || "DB insert failed"}`);
+  if (!currentSession?.session_token) return;
+
+  const unsent = currentQueue.filter((r) => !r.db_sent_at);
+  if (!unsent.length) return;
+
+  for (const rec of unsent) {
+    try {
+      const res = await fetch(`${API_BASE}/canvass/canvass-records`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${currentSession.session_token}`,
+        },
+        body: JSON.stringify({
+          client_record_id: rec.client_record_id,
+          address: rec.address,
+          response: rec.response,
+          party: rec.party,
+          support: rec.support,
+          likelihood: rec.likelihood,
+          issue: rec.issue,
+          notes: rec.notes,
+        }),
+      });
+
+      // 🔴 AUTH FAILURE → STOP + RENEW
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}));
+        if (data?.error === "invalid_or_expired_session") {
+          stopRetryLoop();
+          await renewSession();
+          return;
         }
-
-        // mark sent
-        setQueue((q) =>
-          q.map((r) =>
-            r.client_record_id === rec.client_record_id
-              ? {
-                  ...r,
-                  db_sent_at: new Date().toISOString(),
-                  db_last_error: null,
-                  db_attempts: (r.db_attempts || 0) + 1,
-                }
-              : r
-          )
-        );
-      } catch (e) {
-        // keep it queued; record error + attempts
-        setQueue((q) =>
-          q.map((r) =>
-            r.client_record_id === rec.client_record_id
-              ? {
-                  ...r,
-                  db_last_error: String(e.message || e),
-                  db_attempts: (r.db_attempts || 0) + 1,
-                }
-              : r
-          )
-        );
       }
+
+      if (!res.ok) throw new Error("DB insert failed");
+
+      setQueue((q) =>
+        q.map((r) =>
+          r.client_record_id === rec.client_record_id
+            ? {
+                ...r,
+                db_sent_at: new Date().toISOString(),
+                db_last_error: null,
+                db_attempts: (r.db_attempts || 0) + 1,
+              }
+            : r
+        )
+      );
+    } catch (e) {
+      setQueue((q) =>
+        q.map((r) =>
+          r.client_record_id === rec.client_record_id
+            ? {
+                ...r,
+                db_last_error: String(e.message || e),
+                db_attempts: (r.db_attempts || 0) + 1,
+              }
+            : r
+        )
+      );
     }
   }
+}
 
-  function startRetryLoop() {
-    // retry every 30 seconds while Admin screen is active (and app open)
-    if (retryTimerRef.current) return;
-    retryTimerRef.current = setInterval(() => {
-      trySendToDbOnce();
-      // email retry would be called here too, once wired
-    }, 30_000);
+async function renewSession() {
+  try {
+    const token = getTokenFromUrl();
+    if (!token) throw new Error("Missing link token");
+
+    const res = await fetch(`${API_BASE}/canvass/canvass-session`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!res.ok) throw new Error("Session renewal failed");
+
+    const newSession = await res.json();
+
+    setSession(newSession);
+    sessionRef.current = newSession; // IMPORTANT: keep ref in sync
+
+  
+    await trySendToDbOnce(); // retry immediately once
+  } catch (e) {
+    stopRetryLoop();
+    setError("Session expired. Please reopen the link from your email.");
   }
+}
+
+function startRetryLoop() {
+  if (retryTimerRef.current) return;
+
+  retryTimerRef.current = setInterval(async () => {
+    await trySendToDbOnce();
+  }, 30_000);
+}
 
   function stopRetryLoop() {
     if (retryTimerRef.current) {
